@@ -1,36 +1,78 @@
-This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
+# Evidence — frontend
 
-## Getting Started
+Job matching that shows its working. This is the Next.js frontend for the hackathon build.
+It runs entirely on fixture data today; the FastAPI backend plugs in through one file.
 
-First, run the development server:
+## Run it
 
 ```bash
-npm run dev
-# or
-yarn dev
-# or
-pnpm dev
-# or
-bun dev
+npm install
+npm run dev        # http://localhost:3000
+npm run build      # production build + type check
+npm run lint
 ```
 
-Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
+Copy `.env.example` to `.env.local`. Leave `NEXT_PUBLIC_API_BASE_URL` empty to keep using fixtures.
 
-You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
+## Screens
 
-This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
+| Route       | Stage           | Interactive parts                                   |
+| ----------- | --------------- | --------------------------------------------------- |
+| `/`         | Upload resume   | Drop zone / file picker → `/facts`                  |
+| `/facts`    | Check the facts | Remove a fact locally, Edit is a placeholder        |
+| `/profile`  | Three questions | Segmented answers, saves then → `/discover`         |
+| `/discover` | Find jobs       | "Close to" vs "Browse" mode, job rows → `/match`    |
+| `/match`    | Match report    | Click a requirement to see its proof line           |
+| `/pass`     | Work pass check | Static COMPASS breakdown                            |
+| `/act`      | Take action     | Tabs: tailor (approve diffs), learn, prep, reach    |
+| `/watch`    | Overnight watch | On/off toggle                                       |
+| `/track`    | Track progress  | Static table                                        |
 
-## Learn More
+`/match`, `/pass` and `/act` accept `?job=<id>`. Without it they fall back to the fixture job.
 
-To learn more about Next.js, take a look at the following resources:
+## Layout
 
-- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
-- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
+```
+app/                  one folder per route; pages are Server Components that call lib/api
+  layout.tsx          root shell: fonts, left rail, canvas
+  globals.css         Tailwind import + design tokens + the shared component classes
+components/
+  ui.tsx              Card, Tag, ButtonLink, PageHeader, SectionHead …
+  rail.tsx            left-hand step navigation (client, highlights current route)
+  screens/            client components for the interactive bits of each screen
+lib/
+  types.ts            the data contract the screens render
+  data.ts             fixture data (never import from components; go through api.ts)
+  api.ts              BACKEND PLACEHOLDER — the only file the UI talks to for data
+  routes.ts           tiny URL helpers
+```
 
-You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
+## For the backend team
 
-## Deploy on Vercel
+Everything the UI needs is a function in [lib/api.ts](lib/api.ts). Each one has a `TODO(backend)`
+comment naming the suggested endpoint. Replace the fixture return with a call through the `request()`
+helper in the same file, keep the return types in [lib/types.ts](lib/types.ts), and no screen
+needs to change.
 
-The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
+Suggested FastAPI endpoint map:
 
-Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
+```
+POST /resumes                     uploadResume
+GET  /resumes/:id/facts           fetchFacts
+GET  /profile/questions           fetchProfileQuestions
+PUT  /profile                     saveProfile
+GET  /jobs?mode=close|browse      fetchJobs
+GET  /jobs/unlocks                fetchUnlocks
+GET  /jobs/summary                fetchDiscoverSummary
+GET  /jobs/:id/match              fetchMatchReport
+GET  /jobs/:id/compass            fetchCompassReport
+GET  /jobs/:id/actions            fetchActionCenter
+GET  /watch                       fetchWatchFeed
+PUT  /watch                       setWatchEnabled
+GET  /applications                fetchTracker
+GET  /session                     fetchSessionSummary
+```
+
+Not yet represented in the API layer but referenced by UI placeholders: editing/removing a fact,
+downloading the tailored resume, "make it shorter / rewrite" on the outreach draft, and opening
+a single application from the tracker.
