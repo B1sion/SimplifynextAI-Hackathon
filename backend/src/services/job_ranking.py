@@ -7,14 +7,37 @@ from src.agents.resume_agents.job_parser import parse_job
 
 
 def resume_for_evaluator(resume: dict[str, Any]) -> dict[str, Any]:
-    """`get_full_resume` returns `skills` as a list of dicts (`name`, `evidence`,
-    ...) for the presenter layer, but `ResumeIR.skills` (the evaluator's
-    contract) requires `list[str]`. Adapt just that field for the evaluator
-    without mutating the caller's resume dict, so presenter code downstream
-    keeps seeing the richer skill dicts it needs."""
+    """Adapt a `get_full_resume()`-shaped dict into the flat shape `ResumeIR`
+    expects. Prefers the ingestion-time `resume["resume"]["resume_json"]`
+    when present — it is already `ResumeIR`-shaped, with `skills: list[str]`
+    and the real `name`/`raw_text`/`email` — since that is the richest source
+    of truth for the evaluator. Falls back to rebuilding an equivalent
+    payload from the nested `person`/`resume`/`skills` sub-objects when no
+    `resume_json` was stored, converting only `skills` (`list[dict]` ->
+    `list[str]`) so the caller's own dict (and presenter code downstream)
+    keeps seeing the richer per-skill dicts it needs; this function never
+    mutates its input."""
+    resume_json = (resume.get("resume") or {}).get("resume_json")
+    if isinstance(resume_json, dict):
+        return resume_json
+
+    person = resume.get("person") or {}
+    resume_meta = resume.get("resume") or {}
     skills = resume.get("skills") or []
     skill_names = [skill.get("name", "") if isinstance(skill, dict) else str(skill) for skill in skills]
-    return {**resume, "skills": skill_names}
+    return {
+        "name": person.get("name") or resume_meta.get("name") or "Unknown",
+        "email": person.get("email"),
+        "phone": person.get("phone"),
+        "linkedin_url": person.get("linkedin_url"),
+        "github_url": person.get("github_url"),
+        "portfolio_url": person.get("portfolio_url"),
+        "raw_text": resume_meta.get("raw_text") or "",
+        "work_experience": resume.get("work_experience") or [],
+        "education": resume.get("education") or [],
+        "projects": resume.get("projects") or [],
+        "skills": skill_names,
+    }
 
 
 def rank_jobs_for_resume(resume: dict[str, Any] | None, model_client: Any) -> list[dict[str, Any]]:

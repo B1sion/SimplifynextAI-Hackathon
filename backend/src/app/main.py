@@ -82,7 +82,7 @@ def _resume_payload(resume_id: int) -> dict[str, Any]:
 	resume = get_full_resume(resume_id)
 	if resume is None:
 		raise HTTPException(status_code=404, detail="Resume not found")
-	return resume["resume"].get("resume_json") or resume
+	return resume_for_evaluator(resume)
 
 
 def _requirement_checklist(report: ATSReport) -> list[dict[str, str]]:
@@ -429,7 +429,7 @@ def match_job(job_id: int, resume_id: int | None = Query(default=None)) -> dict[
 		"jobTitle": job["job_title"],
 		"company": job.get("company_name") or "",
 		"location": job.get("location") or "",
-		"verdict": "v" if report.ats_score >= 70 else "c" if report.ats_score >= 50 else "b",
+		"verdict": verdict_for_score(report.ats_score),
 		"verdictLabel": "Strong match" if report.ats_score >= 70 else "Review gaps",
 		"score": report.ats_score,
 		"agents": [{"name": "ATS evaluator", "ok": True, "detail": "Evaluation persisted locally"}],
