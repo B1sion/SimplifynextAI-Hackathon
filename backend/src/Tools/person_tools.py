@@ -1,8 +1,9 @@
 from database.database import get_connection
+from typing import Any
 from ._common import row_to_dict
 
 
-def create_person(name, email=None, phone=None, location=None, linkedin_url=None, github_url=None, portfolio_url=None):
+def create_person(name: str, email: str | None = None, phone: str | None = None, location: str | None = None, linkedin_url: str | None = None, github_url: str | None = None, portfolio_url: str | None = None) -> int:
     with get_connection() as connection:
         cursor = connection.execute(
             """INSERT INTO people
@@ -13,12 +14,12 @@ def create_person(name, email=None, phone=None, location=None, linkedin_url=None
         return cursor.lastrowid
 
 
-def get_person(person_id):
+def get_person(person_id: int) -> dict[str, Any] | None:
     with get_connection() as connection:
         return row_to_dict(connection.execute("SELECT * FROM people WHERE id = ?", (person_id,)).fetchone())
 
 
-def update_person(person_id, **fields):
+def update_person(person_id: int, **fields: Any) -> dict[str, Any] | None:
     allowed = {"name", "email", "phone", "location", "linkedin_url", "github_url", "portfolio_url"}
     changes = [(name, value) for name, value in fields.items() if name in allowed]
     if changes:

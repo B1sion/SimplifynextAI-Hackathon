@@ -1,5 +1,6 @@
 import os
 from pathlib import Path
+from typing import Any
 
 from src.Tools.education_project_tools import add_education, add_project
 from src.Tools.person_tools import create_person
@@ -9,7 +10,7 @@ from src.Tools.work_experience_tools import add_work_experience
 from src.agents.resume_parser import extract_pdf_text, parse_resume, parse_resume_with_agent
 
 
-def ingest_resume(file_path: Path, original_file_path: str | None = None) -> dict:
+def ingest_resume(file_path: Path, original_file_path: str | None = None) -> dict[str, Any] | None:
     text = extract_pdf_text(file_path)
     parsed = parse_resume_with_agent(text) if os.environ.get("AGENTCORE_RUNTIME_ARN") else parse_resume(text)
     person_id = create_person(

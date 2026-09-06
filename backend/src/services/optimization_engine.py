@@ -32,6 +32,7 @@ def optimize_resume(resume_id: int, job_id: int, model_client: BedrockNovaClient
     current = authoritative
     try:
         job_ir = parse_job(job)
+		# Version 0 is immutable: every accepted candidate gets its own child version.
         version = create_resume_version(run["id"], current, parent_version_id=None, version_number=0)
         evaluation = evaluate_resume(current, job_ir, model_client)
         initial_saved = save_evaluation(run["id"], version["id"], 0, evaluation.ats_score, evaluation.model_dump())

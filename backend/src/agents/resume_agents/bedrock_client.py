@@ -33,6 +33,7 @@ class BedrockNovaClient:
             "inferenceConfig": {"maxTokens": 4096, "temperature": 0},
         }
         try:
+			# Nova returns a response envelope; only the text block crosses into domain code.
             response = self.client.invoke_model(
                 modelId=self.model_id,
                 body=json.dumps(request),

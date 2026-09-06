@@ -13,6 +13,7 @@ SKILL_TERMS = (
 
 
 def parse_job(job: dict[str, Any], agentcore: AgentCoreClient | None = None) -> JobIR:
+    """Create the JobIR used by the model prompts while preserving the raw description."""
     if agentcore is not None:
         result = agentcore.parse_job(job)
         return JobIR.model_validate(result)

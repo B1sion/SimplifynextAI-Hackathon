@@ -1,13 +1,14 @@
 from database.database import get_connection
+from typing import Any
 from ._common import row_to_dict, rows_to_dicts
 
 
-def _validate_category(category):
+def _validate_category(category: str) -> None:
     if not isinstance(category, str) or not category.strip():
         raise ValueError("category is required and must be a non-empty string")
 
 
-def add_job(job_title, job_description, category, company_name=None, **fields):
+def add_job(job_title: str, job_description: str, category: str, company_name: str | None = None, **fields: Any) -> int:
     _validate_category(category)
     columns = ["job_title", "job_description", "category", "company_name"]
     values = [job_title, job_description, category, company_name]
@@ -28,17 +29,17 @@ def add_job(job_title, job_description, category, company_name=None, **fields):
         return cursor.lastrowid
 
 
-def get_job(job_id):
+def get_job(job_id: int) -> dict[str, Any] | None:
     with get_connection() as connection:
         return row_to_dict(connection.execute("SELECT * FROM jobs WHERE id = ?", (job_id,)).fetchone())
 
 
-def get_all_jobs():
+def get_all_jobs() -> list[dict[str, Any]]:
     with get_connection() as connection:
         return rows_to_dicts(connection.execute("SELECT * FROM jobs ORDER BY date_collected DESC, id DESC"))
 
 
-def update_job(job_id, **fields):
+def update_job(job_id: int, **fields: Any) -> dict[str, Any] | None:
     allowed = {
         "job_title", "company_name", "category", "salary_min", "salary_max", "salary_currency",
         "salary_period", "min_years_experience", "max_years_experience", "job_description",
@@ -59,7 +60,7 @@ def update_job(job_id, **fields):
     return get_job(job_id)
 
 
-def delete_job(job_id):
+def delete_job(job_id: int) -> bool:
     with get_connection() as connection:
         cursor = connection.execute("DELETE FROM jobs WHERE id = ?", (job_id,))
         return cursor.rowcount > 0

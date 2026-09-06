@@ -1,8 +1,9 @@
 from database.database import get_connection
+from typing import Any
 from ._common import dumps, loads, row_to_dict, rows_to_dicts
 
 
-def save_evaluation(optimization_run_id, resume_version_id, iteration, score, evaluation_json):
+def save_evaluation(optimization_run_id: int, resume_version_id: int, iteration: int, score: float, evaluation_json: dict[str, Any]) -> dict[str, Any]:
     with get_connection() as connection:
         cursor = connection.execute(
             """INSERT INTO evaluations
@@ -14,7 +15,7 @@ def save_evaluation(optimization_run_id, resume_version_id, iteration, score, ev
     return get_evaluation(evaluation_id)
 
 
-def get_evaluation(evaluation_id):
+def get_evaluation(evaluation_id: int) -> dict[str, Any] | None:
     with get_connection() as connection:
         row = row_to_dict(connection.execute("SELECT * FROM evaluations WHERE id = ?", (evaluation_id,)).fetchone())
     if row:
@@ -22,7 +23,7 @@ def get_evaluation(evaluation_id):
     return row
 
 
-def get_latest_evaluation(run_id):
+def get_latest_evaluation(run_id: int) -> dict[str, Any] | None:
     with get_connection() as connection:
         row = row_to_dict(connection.execute("SELECT * FROM evaluations WHERE optimization_run_id = ? ORDER BY iteration DESC, id DESC LIMIT 1", (run_id,)).fetchone())
     if row:
@@ -30,7 +31,7 @@ def get_latest_evaluation(run_id):
     return row
 
 
-def get_evaluations_for_run(run_id):
+def get_evaluations_for_run(run_id: int) -> list[dict[str, Any]]:
     with get_connection() as connection:
         rows = rows_to_dicts(connection.execute("SELECT * FROM evaluations WHERE optimization_run_id = ? ORDER BY iteration, id", (run_id,)))
     for row in rows:

@@ -1,5 +1,6 @@
 import sqlite3
 from pathlib import Path
+from typing import Any
 
 DATABASE_PATH = Path(__file__).parent / "resume_builder.db"
 
@@ -16,14 +17,16 @@ class ManagedConnection(sqlite3.Connection):
         return False
 
 
-def get_connection():
+def get_connection() -> sqlite3.Connection:
+    """Open a foreign-key-enforcing connection with automatic commit/rollback."""
     connection = sqlite3.connect(DATABASE_PATH, factory=ManagedConnection)
     connection.row_factory = sqlite3.Row
     connection.execute("PRAGMA foreign_keys = ON")
     return connection
 
 
-def initialize_database():
+def initialize_database() -> None:
+    """Create the local schema; all application tables are intentionally SQLite-only."""
     connection = get_connection()
 
     try:

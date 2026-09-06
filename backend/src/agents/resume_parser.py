@@ -1,5 +1,6 @@
 import re
 from pathlib import Path
+from typing import Any
 
 from pypdf import PdfReader
 
@@ -77,7 +78,7 @@ def _parse_projects(lines: list[str]) -> list[dict[str, str | None]]:
     ]
 
 
-def parse_resume(text: str) -> dict:
+def parse_resume(text: str) -> dict[str, Any]:
     sections = _section_lines(text)
     email_match = re.search(r"[\w.+-]+@[\w-]+(?:\.[\w-]+)+", text)
     phone_match = re.search(r"(?:\+?\d[\d ()-]{7,}\d)", text)
@@ -97,7 +98,7 @@ def parse_resume(text: str) -> dict:
     }
 
 
-def parse_resume_with_agent(text: str) -> dict:
+def parse_resume_with_agent(text: str) -> dict[str, Any]:
     """Ask AgentCore to convert text into resume JSON."""
     from src.agents.resume_agents.agentcore_client import AgentCoreClient
 

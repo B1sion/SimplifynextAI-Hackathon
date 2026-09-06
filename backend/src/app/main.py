@@ -1,4 +1,5 @@
 from pathlib import Path
+from typing import Any
 from uuid import uuid4
 
 from fastapi import FastAPI, File, HTTPException, Query, UploadFile
@@ -9,6 +10,7 @@ from src.Tools.job_tools import get_all_jobs, get_job
 from src.Tools.optimization_tools import create_optimization_run, create_resume_version, get_optimization_context, get_resume_versions
 from src.Tools.resume_tools import get_full_resume, get_latest_resume, get_resume
 from src.agents.resume_agents.bedrock_client import BedrockClientError, BedrockNovaClient
+from src.agents.resume_agents.contracts import ATSReport
 from src.agents.resume_agents.evaluator import evaluate_resume
 from src.agents.resume_agents.job_parser import parse_job
 from src.agents.resume_ingestion import ingest_resume
@@ -22,14 +24,14 @@ MAX_UPLOAD_BYTES = 10 * 1024 * 1024
 app = FastAPI(title="Simplify Resume API")
 
 
-def _resume_payload(resume_id: int) -> dict:
+def _resume_payload(resume_id: int) -> dict[str, Any]:
 	resume = get_full_resume(resume_id)
 	if resume is None:
 		raise HTTPException(status_code=404, detail="Resume not found")
 	return resume["resume"].get("resume_json") or resume
 
 
-def _requirement_checklist(report) -> list[dict]:
+def _requirement_checklist(report: ATSReport) -> list[dict[str, str]]:
 	matched = [{"text": item, "status": "matched"} for item in report.matched_skills]
 	missing = [{"text": item, "status": "missing"} for item in report.missing_skills]
 	return matched + missing
@@ -47,13 +49,14 @@ def health() -> dict[str, str]:
 
 
 @app.get("/jobs")
-def list_jobs(resume_id: int | None = Query(default=None), mode: str = Query(default="browse")) -> dict:
+def list_jobs(resume_id: int | None = Query(default=None), mode: str = Query(default="browse")) -> dict[str, Any]:
 	jobs = get_all_jobs()
 	if resume_id is None:
 		return {"jobs": jobs, "ranked": False, "mode": mode}
 	resume = _resume_payload(resume_id)
 	ranked = []
 	try:
+		# Ranking is intentionally explicit and simple: one ATS evaluation per stored job.
 		for job in jobs:
 			report = evaluate_resume(resume, parse_job(job), BedrockNovaClient())
 			ranked.append({**job, "score": report.ats_score, "evaluation": report.model_dump()})
@@ -64,7 +67,7 @@ def list_jobs(resume_id: int | None = Query(default=None), mode: str = Query(def
 
 
 @app.get("/resumes/{resume_id}/facts")
-def resume_facts(resume_id: int) -> dict:
+def resume_facts(resume_id: int) -> dict[str, Any]:
 	resume = get_full_resume(resume_id)
 	if resume is None:
 		raise HTTPException(status_code=404, detail="Resume not found")
@@ -72,7 +75,7 @@ def resume_facts(resume_id: int) -> dict:
 
 
 @app.get("/jobs/{job_id}/requirements")
-def job_requirements(job_id: int, resume_id: int = Query(...)) -> dict:
+def job_requirements(job_id: int, resume_id: int = Query(...)) -> dict[str, Any]:
 	job = get_job(job_id)
 	if job is None:
 		raise HTTPException(status_code=404, detail="Job not found")
@@ -84,7 +87,7 @@ def job_requirements(job_id: int, resume_id: int = Query(...)) -> dict:
 
 
 @app.get("/jobs/{job_id}/learning-gaps")
-def job_learning_gaps(job_id: int, resume_id: int = Query(...)) -> dict:
+def job_learning_gaps(job_id: int, resume_id: int = Query(...)) -> dict[str, Any]:
 	job = get_job(job_id)
 	if job is None:
 		raise HTTPException(status_code=404, detail="Job not found")
@@ -106,7 +109,7 @@ def job_learning_gaps(job_id: int, resume_id: int = Query(...)) -> dict:
 
 
 @app.get("/optimization-runs/{run_id}")
-def optimization_run(run_id: int) -> dict:
+def optimization_run(run_id: int) -> dict[str, Any]:
 	context = get_optimization_context(run_id)
 	if context is None:
 		raise HTTPException(status_code=404, detail="Optimization run not found")
@@ -114,7 +117,7 @@ def optimization_run(run_id: int) -> dict:
 
 
 @app.get("/optimization-runs/{run_id}/versions")
-def optimization_versions(run_id: int) -> dict:
+def optimization_versions(run_id: int) -> dict[str, Any]:
 	context = get_optimization_context(run_id)
 	if context is None:
 		raise HTTPException(status_code=404, detail="Optimization run not found")
@@ -128,7 +131,7 @@ def optimization_versions(run_id: int) -> dict:
 
 
 @app.post("/resumes", status_code=201)
-def upload_resume(file: UploadFile = File(...)) -> dict:
+def upload_resume(file: UploadFile = File(...)) -> dict[str, Any]:
 	if file.content_type != "application/pdf" or not file.filename or not file.filename.lower().endswith(".pdf"):
 		raise HTTPException(status_code=415, detail="Only PDF resume files are supported")
 
@@ -155,7 +158,7 @@ def upload_resume(file: UploadFile = File(...)) -> dict:
 
 
 @app.get("/jobs/{job_id}/match")
-def match_job(job_id: int, resume_id: int | None = Query(default=None)) -> dict:
+def match_job(job_id: int, resume_id: int | None = Query(default=None)) -> dict[str, Any]:
 	job = get_job(job_id)
 	resume_record = get_latest_resume() if resume_id is None else None
 	if resume_id is not None:
@@ -196,7 +199,7 @@ def match_job(job_id: int, resume_id: int | None = Query(default=None)) -> dict:
 
 
 @app.post("/jobs/{job_id}/optimize")
-def optimize_job(job_id: int, resume_id: int = Query(...), max_iterations: int = Query(default=3, ge=1, le=10), min_score_improvement: float = Query(default=2, ge=0), target_score: float = Query(default=85, ge=0, le=100)) -> dict:
+def optimize_job(job_id: int, resume_id: int = Query(...), max_iterations: int = Query(default=3, ge=1, le=10), min_score_improvement: float = Query(default=2, ge=0), target_score: float = Query(default=85, ge=0, le=100)) -> dict[str, Any]:
 	try:
 		return optimize_resume(resume_id, job_id, BedrockNovaClient(), max_iterations, min_score_improvement, target_score)
 	except ValueError as error:

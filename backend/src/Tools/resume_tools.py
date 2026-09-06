@@ -1,8 +1,9 @@
 from database.database import get_connection
+from typing import Any
 from ._common import dumps, loads, row_to_dict, rows_to_dicts
 
 
-def create_resume(person_id, resume_name, original_file_path=None, raw_text=None, resume_json=None):
+def create_resume(person_id: int, resume_name: str, original_file_path: str | None = None, raw_text: str | None = None, resume_json: dict[str, Any] | None = None) -> int:
     with get_connection() as connection:
         cursor = connection.execute(
             """INSERT INTO resumes
@@ -13,7 +14,7 @@ def create_resume(person_id, resume_name, original_file_path=None, raw_text=None
         return cursor.lastrowid
 
 
-def get_resume(resume_id):
+def get_resume(resume_id: int) -> dict[str, Any] | None:
     with get_connection() as connection:
         row = row_to_dict(connection.execute("SELECT * FROM resumes WHERE id = ?", (resume_id,)).fetchone())
     if row:
@@ -21,7 +22,7 @@ def get_resume(resume_id):
     return row
 
 
-def get_latest_resume():
+def get_latest_resume() -> dict[str, Any] | None:
     with get_connection() as connection:
         row = row_to_dict(connection.execute("SELECT * FROM resumes ORDER BY id DESC LIMIT 1").fetchone())
     if row:
@@ -29,7 +30,7 @@ def get_latest_resume():
     return row
 
 
-def get_resumes_for_person(person_id):
+def get_resumes_for_person(person_id: int) -> list[dict[str, Any]]:
     with get_connection() as connection:
         rows = rows_to_dicts(connection.execute("SELECT * FROM resumes WHERE person_id = ? ORDER BY id", (person_id,)))
     for row in rows:
@@ -37,7 +38,7 @@ def get_resumes_for_person(person_id):
     return rows
 
 
-def update_resume(resume_id, **fields):
+def update_resume(resume_id: int, **fields: Any) -> dict[str, Any] | None:
     allowed = {"resume_name", "original_file_path", "raw_text", "resume_json"}
     changes = [(name, dumps(value) if name == "resume_json" else value) for name, value in fields.items() if name in allowed]
     if changes:
@@ -50,7 +51,7 @@ def update_resume(resume_id, **fields):
     return get_resume(resume_id)
 
 
-def get_full_resume(resume_id):
+def get_full_resume(resume_id: int) -> dict[str, Any] | None:
     resume = get_resume(resume_id)
     if resume is None:
         return None

@@ -1,9 +1,10 @@
 import os
 import unittest
 
-from src.agents.resume_agents.bedrock_client import BedrockNovaClient
+from src.agents.resume_agents.bedrock_client import BedrockClientError, BedrockNovaClient
 from src.agents.resume_agents.contracts import ATSReport, JobIR, ResumeIR, RewritePlan
 from src.agents.resume_agents.evaluator import evaluate_resume
+from src.agents.resume_agents.job_parser import parse_job
 from src.agents.resume_agents.planner import plan_resume
 from src.agents.resume_agents.validator import validate_resume
 from src.agents.resume_agents.writer import rewrite_resume
@@ -75,11 +76,29 @@ class AgentWorkflowTest(unittest.TestCase):
         client = BedrockNovaClient(client=FakeBedrockRuntime(), model_id="amazon.nova-micro-v1:0")
         self.assertEqual(client.generate_json("Return JSON", {})["ats_score"], 76)
 
+    def test_bedrock_client_rejects_non_json_model_output(self):
+        with self.assertRaises(BedrockClientError):
+            BedrockNovaClient._parse_json("The model did not return JSON")
+
+    def test_job_parser_preserves_description_and_classifies_requirements(self):
+        job = parse_job({"job_title": "Data Engineer", "job_description": "Required: Python and SQL\nPreferred: Docker\nBachelor degree"})
+        self.assertEqual(job.title, "Data Engineer")
+        self.assertIn("python", job.required_skills)
+        self.assertIn("docker", job.preferred_skills)
+        self.assertEqual(job.original_description, "Required: Python and SQL\nPreferred: Docker\nBachelor degree")
+
     def test_truthfulness_validator_rejects_fabricated_candidate(self):
         fabricated = {**RESUME, "skills": ["Python", "Kubernetes"]}
         report = validate_resume(RESUME, fabricated)
         self.assertFalse(report.valid)
         self.assertEqual(report.unsupported_additions[0].category, "invented_skill")
+
+    def test_truthfulness_validator_rejects_changed_dates(self):
+        authoritative = {**RESUME, "work_experience": [{"company_name": "Analytical Engines", "job_title": "Engineer", "start_date": "2020", "end_date": "2022"}]}
+        candidate = {**authoritative, "work_experience": [{"company_name": "Analytical Engines", "job_title": "Engineer", "start_date": "2021", "end_date": "2022"}]}
+        report = validate_resume(authoritative, candidate)
+        self.assertFalse(report.valid)
+        self.assertIn("2021", report.changed_dates)
 
     @unittest.skipUnless(os.getenv("RUN_LIVE_BEDROCK") == "1", "Set RUN_LIVE_BEDROCK=1 to run the live Nova test")
     def test_live_nova_evaluator(self):
