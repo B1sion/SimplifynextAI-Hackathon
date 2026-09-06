@@ -1,4 +1,5 @@
 import unittest
+from unittest.mock import patch
 
 from src.services.presenters import (
     COMPASS_STUB_CRITERIA,
@@ -10,6 +11,7 @@ from src.services.presenters import (
     match_requirements_to_frontend,
     verdict_for_score,
 )
+from src.services.job_ranking import rank_jobs_for_resume
 
 
 class PresentersTest(unittest.TestCase):
@@ -102,6 +104,55 @@ class PresentersTest(unittest.TestCase):
         self.assertEqual(report["jobId"], "5")
         self.assertEqual(report["criteria"], COMPASS_STUB_CRITERIA)
         self.assertIn("disclaimer", report)
+
+
+class JobRankingTest(unittest.TestCase):
+    def setUp(self):
+        import tempfile
+        from pathlib import Path
+        from database import database
+        from database.database import initialize_database
+        from src.Tools.job_tools import add_job
+        from src.Tools.person_tools import create_person
+        from src.Tools.resume_tools import create_resume, get_full_resume
+
+        self.temp_dir = tempfile.TemporaryDirectory()
+        database.DATABASE_PATH = Path(self.temp_dir.name) / "resume_builder.db"
+        initialize_database()
+        self.person_id = create_person("Ada Lovelace")
+        self.resume_id = create_resume(
+            self.person_id, "Ada Resume", raw_text="Python developer", resume_json={"skills": ["Python"]}
+        )
+        self.job_with_python = add_job("Engineer A", "Needs Python", "Engineering", company_name="A")
+        self.job_without_python = add_job("Engineer B", "Needs Rust", "Engineering", company_name="B")
+        self.resume = get_full_resume(self.resume_id)
+
+    def tearDown(self):
+        self.temp_dir.cleanup()
+
+    def test_ranking_degrades_gracefully_on_bedrock_failure(self):
+        from src.agents.resume_agents.bedrock_client import BedrockClientError
+
+        with patch("src.services.job_ranking.evaluate_resume", side_effect=BedrockClientError("boom")):
+            ranked = rank_jobs_for_resume(self.resume, model_client=object())
+
+        self.assertEqual(len(ranked), 2)
+        for entry in ranked:
+            self.assertEqual(entry["score"], 0.0)
+            self.assertIsNone(entry["evaluation"])
+
+    def test_ranking_returns_scores_from_model_client(self):
+        from src.agents.resume_agents.contracts import ATSReport
+
+        def fake_evaluate(resume, job_ir, model_client):
+            return ATSReport(ats_score=90.0) if job_ir.title == "Engineer A" else ATSReport(ats_score=40.0)
+
+        with patch("src.services.job_ranking.evaluate_resume", side_effect=fake_evaluate):
+            ranked = rank_jobs_for_resume(self.resume, model_client=object())
+
+        scores = {entry["id"]: entry["score"] for entry in ranked}
+        self.assertEqual(scores[self.job_with_python], 90.0)
+        self.assertEqual(scores[self.job_without_python], 40.0)
 
 
 if __name__ == "__main__":
