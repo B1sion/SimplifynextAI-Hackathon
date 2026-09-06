@@ -32,7 +32,7 @@ class ResumePolicyTest(unittest.TestCase):
                     "education": [
                         {"institution": "University", "degree": "BSc", "gpa": "3.2/4"},
                     ],
-                    "work_experience": [],
+                    "work_experience": [{"company_name": "Company", "job_title": "Role", "start_date": "December 2025", "end_date": "January 2026", "bullets": ["Did work"]}],
                     "projects": [{"project_name": "Research", "bullets": ["Built a model"]}],
                     "skills": ["Python"],
                 },
@@ -46,6 +46,7 @@ class ResumePolicyTest(unittest.TestCase):
         compact = " ".join(text.split())
         self.assertIn("Ada Lovelace ada@example.com | linkedin.com/ada | github.com/ada | ada.example.com", compact)
         self.assertNotIn("3.2/4", compact)
+        self.assertIn("Dec 2025 - Jan 2026", compact)
         self.assertLess(compact.index("EDUCATION"), compact.index("LEADERSHIP & ACTIVITIES"))
         self.assertLess(compact.index("LEADERSHIP & ACTIVITIES"), compact.index("SKILLS & INTERESTS"))
 

@@ -96,7 +96,10 @@ class BedrockNovaClient:
 
     def validate_resume(self, authoritative_resume: dict[str, Any], candidate_resume: dict[str, Any]) -> dict[str, Any]:
         return self.generate_json(
-            """Act as a resume truthfulness validator. Return ONLY valid JSON with keys valid (boolean), unsupported_additions (array of objects with category, claim, reason), changed_dates (array of strings), inflated_titles (array of strings), and summary (string). Reject unsupported facts, invented metrics, skills, technologies, responsibilities, credentials, projects, education, dates, titles, or seniority.""",
+            self._load_prompt(
+                "Validator.md",
+                "Act as a resume truth validator and return only the ValidationReport JSON object.",
+            ),
             {"authoritative_resume": authoritative_resume, "candidate_resume": candidate_resume},
         )
 

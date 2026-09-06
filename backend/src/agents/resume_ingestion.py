@@ -37,7 +37,11 @@ def ingest_resume(file_path: Path, original_file_path: str | None = None) -> dic
     for education in parsed["education"]:
         add_education(resume_id, **education)
     for project in parsed["projects"]:
-        add_project(resume_id, **project)
+        project_data = {key: value for key, value in project.items() if key not in {"bullets"}}
+        bullets = project.get("bullets") or []
+        if bullets:
+            project_data["description"] = "\n".join(filter(None, [project_data.get("description"), *bullets]))
+        add_project(resume_id, **project_data)
     for skill_name in parsed["skills"]:
         skill_id = create_skill(skill_name)
         add_skill_to_resume(resume_id, skill_id, source="explicit", evidence=skill_name)

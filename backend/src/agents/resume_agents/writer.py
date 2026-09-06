@@ -67,13 +67,23 @@ def rewrite_resume(resume: ResumeIR | dict[str, Any], job: JobIR | dict[str, Any
         candidate = _apply_conservative_repairs(candidate)
     candidate["education"] = omit_low_gpa(candidate.get("education") or [])
     preserved = resume_ir.model_dump()
+    candidate_skills = candidate.get("skills") or []
+    preserved_skills = preserved.get("skills") or []
+    if candidate_skills and preserved_skills:
+        candidate["skills"] = list(dict.fromkeys([
+            *preserved_skills,
+            *[
+                skill for skill in candidate_skills
+                if not any(str(skill).casefold() in str(existing).casefold() for existing in preserved_skills)
+            ],
+        ]))
     for field in ("name", "email", "phone", "linkedin_url", "github_url", "portfolio_url", "other_urls", "raw_text", "work_experience", "education", "projects", "skills", "certifications"):
         value = candidate.get(field)
         if field == "name" and (not value or value == "Unknown"):
             candidate[field] = preserved[field]
         elif field == "raw_text" and value != preserved[field]:
             candidate[field] = preserved[field]
-        elif field in {"linkedin_url", "github_url", "portfolio_url", "other_urls"} and value != preserved[field]:
+        elif field in {"email", "phone", "linkedin_url", "github_url", "portfolio_url", "other_urls"} and value != preserved[field]:
             candidate[field] = preserved[field]
         elif field in {"work_experience", "education", "projects", "skills", "certifications"} and not value and preserved[field]:
             candidate[field] = preserved[field]

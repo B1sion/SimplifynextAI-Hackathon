@@ -9,14 +9,25 @@ SECTION_NAMES = {
     "experience": {"experience", "work experience", "work history", "employment"},
     "education": {"education", "academic background"},
     "projects": {"projects", "personal projects"},
-    "skills": {"skills", "technical skills", "core skills"},
+    "leadership": {"leadership & activities", "leadership and activities", "activities"},
+    "skills": {"skills", "skills & interests", "technical skills", "core skills"},
 }
 SECTION_ALIASES = {
     "education experience": "experience",
     "other experience": "experience",
     "other experiences": "experience",
 }
-DATE_RANGE_RE = re.compile(r"\s+(?P<start>[A-Za-z]+\s+\d{4})\s*[-–—?]\s*(?P<end>[A-Za-z]+\s+\d{4})$")
+MONTH = r"(?:Jan(?:uary)?|Feb(?:ruary)?|Mar(?:ch)?|Apr(?:il)?|May|Jun(?:e)?|Jul(?:y)?|Aug(?:ust)?|Sep(?:tember)?|Oct(?:ober)?|Nov(?:ember)?|Dec(?:ember)?)"
+DATE_RANGE_RE = re.compile(
+    rf"\s+(?P<start>{MONTH}\s*\d{{0,4}})\s*[-–—?]\s*(?P<end>(?:{MONTH}|Present)(?:\s+\d{{4}})?)$",
+    re.IGNORECASE,
+)
+INLINE_DATE_RANGE_RE = re.compile(
+    rf"(?P<start>{MONTH}\s*\d{{0,4}})\s*[-–—?]\s*(?P<end>(?:{MONTH}|Present)(?:\s+\d{{4}})?)$",
+    re.IGNORECASE,
+)
+YEAR_RE = re.compile(r"\s+(?P<year>\d{4})$")
+SINGLE_DATE_RE = re.compile(rf"\s+(?P<date>{MONTH}\s+\d{{4}})$", re.IGNORECASE)
 BULLET_RE = re.compile(r"^(?:[●•▪◦*-])\s*")
 RESUME_READER_PROMPT_PATH = Path(__file__).parent / "resume_agents" / "Resume_reader.md"
 
@@ -61,7 +72,25 @@ def _first_name(text: str) -> str:
 def _parse_experience(lines: list[str]) -> list[dict[str, Any]]:
     entries: list[dict[str, Any]] = []
     for index, line in enumerate(lines):
-        if " | " in line:
+        inline_date = INLINE_DATE_RANGE_RE.search(line)
+        if inline_date:
+            header = line[:inline_date.start()].strip(" -–—")
+            if " — " in header:
+                job_title, company_name = [part.strip() for part in header.split(" — ", 1)]
+            elif " | " in header:
+                job_title, company_name = [part.strip() for part in header.split(" | ", 1)]
+            else:
+                job_title, company_name = None, header
+            entries.append({
+                "company_name": company_name,
+                "job_title": job_title,
+                "start_date": inline_date.group("start").strip(),
+                "end_date": inline_date.group("end").strip(),
+                "description": None,
+                "bullets": [],
+                "experience_order": index,
+            })
+        elif " | " in line:
             job_title, company_name = [part.strip() for part in line.split(" | ", 1)]
             entries.append({"company_name": company_name, "job_title": job_title, "description": None, "bullets": [], "experience_order": index})
         else:
@@ -71,8 +100,8 @@ def _parse_experience(lines: list[str]) -> list[dict[str, Any]]:
                 entries.append({
                     "company_name": company_name,
                     "job_title": None,
-                    "start_date": date_match.group("start"),
-                    "end_date": date_match.group("end"),
+                    "start_date": date_match.group("start").strip(),
+                    "end_date": date_match.group("end").strip(),
                     "description": None,
                     "bullets": [],
                     "experience_order": index,
@@ -94,8 +123,34 @@ def _parse_experience(lines: list[str]) -> list[dict[str, Any]]:
 def _parse_education(lines: list[str]) -> list[dict[str, str | None]]:
     entries: list[dict[str, str | None]] = []
     for line in lines:
+        if line.lower().startswith("relevant coursework:") and entries:
+            coursework = line
+            if " | " in coursework:
+                coursework, grade = coursework.split(" | ", 1)
+                entries[-1]["grade"] = grade.removeprefix("CAP:").removeprefix("GPA:").strip()
+            entries[-1]["description"] = coursework
+            continue
+        inline_date = INLINE_DATE_RANGE_RE.search(line)
+        if inline_date:
+            header = line[:inline_date.start()].strip(" -–—")
+            if " — " in header:
+                institution, degree = [part.strip() for part in header.split(" — ", 1)]
+            else:
+                institution, degree = header, None
+            entries.append({
+                "institution": institution,
+                "degree": degree,
+                "start_date": inline_date.group("start").strip(),
+                "end_date": inline_date.group("end").strip(),
+                "description": None,
+                "education_order": len(entries),
+            })
+            continue
         date_match = DATE_RANGE_RE.search(line)
-        if " | " in line and not date_match:
+        if " — " in line and not date_match:
+            institution, degree = [part.strip() for part in line.split(" — ", 1)]
+            entries.append({"institution": institution, "degree": degree, "description": None, "education_order": len(entries)})
+        elif " | " in line and not date_match:
             institution, degree = [part.strip() for part in line.split(" | ", 1)]
             entries.append({"institution": institution, "degree": degree, "description": None, "education_order": len(entries)})
         elif date_match:
@@ -103,11 +158,13 @@ def _parse_education(lines: list[str]) -> list[dict[str, str | None]]:
             entries.append({
                 "institution": institution,
                 "degree": None,
-                "start_date": date_match.group("start"),
-                "end_date": date_match.group("end"),
+                "start_date": date_match.group("start").strip(),
+                "end_date": date_match.group("end").strip(),
                 "description": None,
                 "education_order": len(entries),
             })
+        elif entries and re.search(r"(?:CAP|GPA)\s*:", line, re.IGNORECASE):
+            entries[-1]["grade"] = re.search(r"(?:CAP|GPA)\s*:\s*(.+)$", line, re.IGNORECASE).group(1)
         elif entries and entries[-1]["degree"] is None:
             entries[-1]["degree"] = line
         elif entries:
@@ -119,19 +176,65 @@ def _parse_education(lines: list[str]) -> list[dict[str, str | None]]:
 
 
 def _parse_projects(lines: list[str]) -> list[dict[str, str | None]]:
-    return [
-        {"project_name": line.split(" - ", 1)[0].strip(), "description": line.split(" - ", 1)[1].strip() if " - " in line else None, "project_order": index}
-        for index, line in enumerate(lines)
-    ]
+    entries: list[dict[str, Any]] = []
+    for line in lines:
+        date_match = INLINE_DATE_RANGE_RE.search(line)
+        if date_match:
+            header = line[:date_match.start()].strip(" -–—")
+            entries.append({
+                "project_name": header,
+                "start_date": date_match.group("start"),
+                "end_date": date_match.group("end"),
+                "description": None,
+                "bullets": [],
+                "project_order": len(entries),
+            })
+        elif (single_date := SINGLE_DATE_RE.search(line)):
+            entries.append({
+                "project_name": line[:single_date.start()].strip(" -–—") or line,
+                "start_date": single_date.group("date").strip(),
+                "end_date": None,
+                "description": None,
+                "bullets": [],
+                "project_order": len(entries),
+            })
+        elif (year_match := YEAR_RE.search(line)):
+            entries.append({
+                "project_name": line[:year_match.start()].strip(" -–—") or line,
+                "start_date": year_match.group("year"),
+                "end_date": None,
+                "description": None,
+                "bullets": [],
+                "project_order": len(entries),
+            })
+        elif entries and BULLET_RE.match(line):
+            entries[-1].setdefault("bullets", []).append(BULLET_RE.sub("", line).strip())
+        elif entries:
+            bullets = entries[-1].setdefault("bullets", [])
+            if bullets:
+                bullets[-1] = f"{bullets[-1]} {line}".strip()
+            else:
+                entries[-1]["description"] = f"{entries[-1].get('description') or ''} {line}".strip()
+        else:
+            parts = line.split(" - ", 1)
+            entries.append({"project_name": parts[0].strip(), "description": parts[1].strip() if len(parts) > 1 else None, "project_order": len(entries)})
+    return entries
 
 
 def parse_resume(text: str) -> dict[str, Any]:
     sections = _section_lines(text)
     email_match = re.search(r"[\w.+-]+@[\w-]+(?:\.[\w-]+)+", text)
     phone_match = re.search(r"(?:\+?\d[\d ()-]{7,}\d)", text)
-    urls = [url.rstrip(".,;)") for url in re.findall(r"(?:https?://|www\.)\S+", text)]
+    urls = [url.rstrip(".,;)") for url in re.findall(r"(?:(?:https?://|www\.)\S+|(?:linkedin|github)\.com/\S+)", text, re.IGNORECASE)]
     other_urls = [url for url in urls if "linkedin.com" not in url.lower() and "github.com" not in url.lower()]
-    skills = [skill.strip() for line in sections["skills"] for skill in re.split(r",|\||•", line) if skill.strip()]
+    skills: list[str] = []
+    for line in sections["skills"]:
+        if line.startswith("(") and skills:
+            skills[-1] = f"{skills[-1]} {line}".strip()
+        elif re.match(r"(?:technical|languages|interests)\s*:", line, re.IGNORECASE):
+            skills.append(line)
+        else:
+            skills.extend(skill.strip() for skill in re.split(r",|\||•", line) if skill.strip())
     return {
         "name": _first_name(text),
         "email": email_match.group(0) if email_match else None,
@@ -143,7 +246,7 @@ def parse_resume(text: str) -> dict[str, Any]:
         "raw_text": text,
         "work_experience": _parse_experience(sections["experience"]),
         "education": _parse_education(sections["education"]),
-        "projects": _parse_projects(sections["projects"]),
+        "projects": _parse_projects(sections["leadership"] + sections["projects"]),
         "skills": skills,
     }
 

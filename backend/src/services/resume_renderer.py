@@ -8,7 +8,7 @@ from reportlab.lib.enums import TA_CENTER, TA_RIGHT
 from reportlab.lib.pagesizes import LETTER
 from reportlab.lib.styles import ParagraphStyle, getSampleStyleSheet
 from reportlab.lib.units import inch
-from reportlab.platypus import HRFlowable, KeepTogether, Paragraph, SimpleDocTemplate, Spacer, Table, TableStyle
+from reportlab.platypus import HRFlowable, KeepTogether, PageBreak, Paragraph, SimpleDocTemplate, Spacer, Table, TableStyle
 from src.services.resume_policy import gpa_meets_first_class_threshold, omit_low_gpa
 
 
@@ -32,7 +32,13 @@ def _clean_bullet(text: Any) -> str:
 def _date_range(item: dict[str, Any]) -> str:
     start = item.get("start_date") or item.get("startDate") or ""
     end = item.get("end_date") or item.get("endDate") or ""
-    return " - ".join(part for part in (start, end) if part)
+    months = {
+        "January": "Jan", "February": "Feb", "March": "Mar", "April": "Apr",
+        "May": "May", "June": "Jun", "July": "Jul", "August": "Aug",
+        "September": "Sep", "October": "Oct", "November": "Nov", "December": "Dec",
+    }
+    compact = [re.sub(r"\b(?:" + "|".join(months) + r")\b", lambda match: months[match.group(0)], str(part)) for part in (start, end) if part]
+    return " - ".join(compact)
 
 
 def _contact_values(resume: dict[str, Any]) -> list[str]:
@@ -69,7 +75,7 @@ def _add_entry(
             rows.append([_paragraph(primary, heading_style), _paragraph(location, metadata_style)])
         if secondary or date_range:
             rows.append([_paragraph(secondary, secondary_style), _paragraph(date_range, metadata_style)])
-        header = Table(rows, colWidths=[5.35 * inch, 1.65 * inch])
+        header = Table(rows, colWidths=[4.95 * inch, 2.05 * inch])
         header.setStyle(TableStyle([
             ("VALIGN", (0, 0), (-1, -1), "TOP"),
             ("ALIGN", (1, 0), (1, 0), "RIGHT"),
@@ -144,8 +150,8 @@ def render_resume_pdf(
     metadata_style = ParagraphStyle(
         "ResumeMetadata",
         parent=styles["Normal"],
-        fontSize=9,
-        leading=12,
+        fontSize=8,
+        leading=9,
         textColor=colors.HexColor("#555555"),
         alignment=TA_RIGHT,
         spaceAfter=1,
@@ -199,7 +205,7 @@ def render_resume_pdf(
                 for bullet in bullets:
                     details.append(Paragraph(_value(_clean_bullet(bullet)), bullet_style, bulletText="•"))
             elif item.get("description"):
-                details.append(_paragraph(item["description"], body_style))
+                details.append(Paragraph(_value(item["description"]), bullet_style, bulletText="•"))
             _add_entry(story, company, title, _date_range(item), item.get("location") or "", details, heading_style, secondary_style, metadata_style)
 
     projects = resume.get("projects") or []
@@ -209,7 +215,7 @@ def render_resume_pdf(
             name = item.get("project_name") or item.get("name") or ""
             details = []
             if item.get("description"):
-                details.append(_paragraph(item["description"], body_style))
+                details.append(Paragraph(_value(item["description"]), bullet_style, bulletText="•"))
             for bullet in item.get("bullets") or item.get("highlights") or []:
                 details.append(Paragraph(_value(_clean_bullet(bullet)), bullet_style, bulletText="•"))
             _add_entry(story, name, "", _date_range(item), item.get("location") or "", details, heading_style, secondary_style, metadata_style)
@@ -217,6 +223,9 @@ def render_resume_pdf(
     skills = resume.get("skills") or []
     certifications = resume.get("certifications") or []
     if skills or certifications:
+        detail_count = sum(len(item.get("bullets") or []) for item in work + projects)
+        if detail_count >= 8 and story:
+            story.append(PageBreak())
         _add_section(story, "Skills & Interests", section_style)
         skill_names = []
         for skill in skills:

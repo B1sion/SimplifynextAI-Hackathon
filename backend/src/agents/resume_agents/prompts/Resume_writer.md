@@ -73,6 +73,11 @@ Use the supplied ResumeIR as content and follow these presentation rules:
 - Optimize for fast human scanning: clear hierarchy, consistent capitalization,
   readable wording, and enough detail to understand impact without restating
   the job description.
+- Prefer a complete, readable one-page resume. Prioritize the strongest and
+  most relevant supported evidence, remove redundancy, and use concise wording
+  to fit one page when reasonably possible. Do not omit material experience or
+  force unreadably dense formatting solely to meet the one-page preference; a
+  second page is acceptable when necessary to preserve important facts.
 
 These are presentation and editing rules, not permission to add facts. The
 truthfulness rules below always take precedence.
