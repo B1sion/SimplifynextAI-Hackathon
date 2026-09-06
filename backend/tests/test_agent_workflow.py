@@ -78,6 +78,21 @@ class AgentWorkflowTest(unittest.TestCase):
         self.assertGreaterEqual(report.ats_score, 0)
         self.assertLessEqual(report.ats_score, 100)
 
+    @unittest.skipUnless(os.getenv("RUN_LIVE_BEDROCK") == "1", "Set RUN_LIVE_BEDROCK=1 to run the live Nova workflow")
+    def test_live_nova_evaluator_planner_writer_evaluator(self):
+        client = BedrockNovaClient()
+        initial = evaluate_resume(RESUME, JOB, client)
+        plan = plan_resume(RESUME, JOB, initial, client)
+        candidate = rewrite_resume(RESUME, JOB, plan, client)
+        final = evaluate_resume(candidate, JOB, client)
+
+        self.assertIsInstance(initial, ATSReport)
+        self.assertIsInstance(plan, RewritePlan)
+        self.assertIsInstance(candidate, ResumeIR)
+        self.assertIsInstance(final, ATSReport)
+        self.assertGreaterEqual(initial.ats_score, 0)
+        self.assertLessEqual(final.ats_score, 100)
+
 
 if __name__ == "__main__":
     unittest.main()
