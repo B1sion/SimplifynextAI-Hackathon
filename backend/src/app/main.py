@@ -21,7 +21,7 @@ from src.agents.resume_agents.contracts import ATSReport
 from src.agents.resume_agents.evaluator import evaluate_resume
 from src.agents.resume_agents.job_parser import parse_job
 from src.agents.resume_ingestion import ingest_resume
-from src.services.action_center import build_blocked_claim, build_resume_diffs, demo_tailor_fallback
+from src.services.action_center import build_blocked_claim, build_resume_diffs, build_skill_gaps, demo_tailor_fallback
 from src.services.job_ranking import rank_jobs_for_resume, resume_for_evaluator
 from src.services.optimization_engine import optimize_resume
 from src.services.presenters import WORK_PASS_STUB, compute_compass_report, facts_to_groups, job_to_frontend, match_requirements_to_frontend, verdict_for_score
@@ -506,4 +506,5 @@ def job_actions(job_id: int, resume_id: int | None = Query(default=None)) -> dic
 		"total": len(matched) + len(missing),
 		"diffs": diffs,
 		"blocked": blocked,
+		"skills": build_skill_gaps(missing, job_id, get_all_jobs()),
 	}

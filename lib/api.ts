@@ -6,7 +6,9 @@
  *
  * fetchActionCenter (/act) calls the real /jobs/:id/actions endpoint for the
  * "Tailor my resume" tab (met/total/diffs/blocked, driven by the real
- * planner→writer→validator optimize pipeline). The "learn"/"prep"/"reach"
+ * planner→writer→validator optimize pipeline) and the "Tell me what to
+ * learn" tab (skills, ranked by real cross-job demand + a rough salary-
+ * premium estimate from the seeded jobs' salary data). The "prep"/"reach"
  * tabs and the outreach draft have no backend equivalent yet and stay on the
  * ACTION_CENTER fixture — see README "Known limitations".
  *
@@ -31,7 +33,7 @@
  *   PUT  /watch                       setWatchEnabled
  *   GET  /applications                fetchTracker
  *   GET  /session                     fetchSessionSummary
- *   GET  /jobs/:id/actions            fetchActionCenter (tailor tab only)
+ *   GET  /jobs/:id/actions            fetchActionCenter (tailor + learn tabs)
  */
 
 import { ACTION_CENTER, STAGES } from "./data";
@@ -148,12 +150,14 @@ export async function fetchCompassReport(jobId?: string): Promise<CompassReport>
 
 export async function fetchActionCenter(jobId?: string): Promise<ActionCenter> {
   const id = jobId ?? (await defaultJobId());
-  const real = await request<Pick<ActionCenter, "jobId" | "jobTitle" | "company" | "met" | "total" | "diffs"> & { blocked: ActionCenter["blocked"] | null }>(
-    `/jobs/${encodeURIComponent(id)}/actions`
-  );
-  // "learn" / "prep" / "reach" tabs and the outreach draft have no backend
-  // equivalent yet (see README "Known limitations"), so those pieces of the
-  // fixture are kept and merged with the real tailor-tab data above.
+  const real = await request<
+    Pick<ActionCenter, "jobId" | "jobTitle" | "company" | "met" | "total" | "diffs" | "skills"> & {
+      blocked: ActionCenter["blocked"] | null;
+    }
+  >(`/jobs/${encodeURIComponent(id)}/actions`);
+  // "prep" / "reach" tabs and the outreach draft have no backend equivalent yet
+  // (see README "Known limitations"), so those pieces of the fixture are kept
+  // and merged with the real tailor + learn tab data above.
   return {
     ...ACTION_CENTER,
     ...real,

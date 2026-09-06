@@ -130,11 +130,21 @@ function TailorTab({ center }: { center: ActionCenter }) {
 /* -------------------------------- learn -------------------------------- */
 
 function LearnTab({ center }: { center: ActionCenter }) {
+  if (center.skills.length === 0) {
+    return (
+      <>
+        <p className="sub">
+          You already meet every requirement we could detect for this job, so there is nothing left to learn for it
+          specifically.
+        </p>
+      </>
+    );
+  }
+
   return (
     <>
       <p className="sub">
-        Three requirements you are missing, ordered by what each one opens up across the roles we track — not just
-        this job.
+        Requirements you are missing for this job, ranked by how many other roles we track also need them.
       </p>
       <Card>
         {center.skills.map((s) => (

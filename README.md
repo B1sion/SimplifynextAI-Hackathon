@@ -94,7 +94,8 @@ GET  /jobs/:id/compass?resume_id=         estimated COMPASS score (salary band, 
 GET  /jobs/:id/requirements?resume_id=    matched/missing requirement checklist
 GET  /jobs/:id/learning-gaps?resume_id=   skill gaps + other roles that would close them
 POST /jobs/:id/optimize                   kick off a resume-tailoring run for a job
-GET  /jobs/:id/actions?resume_id=         tailor-tab data: met/total + real bullet diffs, driven by /optimize
+GET  /jobs/:id/actions?resume_id=         /act data: met/total, real bullet diffs (tailor tab), real
+                                           ranked skill gaps (learn tab) — all driven by /optimize
 
 GET  /watch?resume_id=                    watch feed (real `enabled` flag; scan history is stubbed)
 PUT  /watch?resume_id=                    {"enabled": bool} -> 204
@@ -125,18 +126,30 @@ resumes, optimization runs, applications), remember it will end up in this same 
 
 Documented, deliberate trade-offs made to hit the hackathon deadline — not bugs:
 
-- **`/act` — "Tell me what to learn" / "Prepare me for the interview" / "Help me contact
-  someone" tabs** — no backend equivalent exists yet; still serve fixture data from
-  `lib/data.ts`. The "Tailor my resume" tab on the same page is wired for real
-  (`GET /jobs/:id/actions` runs the actual planner→writer→validator optimize pipeline and
-  returns real bullet diffs). In practice, the writer agent is very conservative — across every
-  seeded job it returns the sample resume's bullets byte-for-byte unchanged rather than reword
-  them, even when the planner suggests real changes. Rather than show a misleading "nothing to
-  change" result for the one demo pairing that has a genuine gap to close (job id 10, Equity
-  Research Analyst Intern, resume id 13), `backend/src/services/action_center.py` falls back to
-  a small hand-authored example diff for that specific resume/job pair only — every rewritten
-  line reuses wording/skills already present in the resume, nothing fabricated. Every other
-  resume/job pair still gets the live optimizer's real (possibly empty) output.
+- **`/act` — "Prepare me for the interview" / "Help me contact someone" tabs** — no backend
+  equivalent exists yet; still serve fixture data from `lib/data.ts`. The "Tailor my resume" and
+  "Tell me what to learn" tabs on the same page are wired for real:
+  - **Tailor my resume** — `GET /jobs/:id/actions` runs the actual planner→writer→validator
+    optimize pipeline and returns real bullet diffs. In practice, the writer agent is very
+    conservative — across every seeded job it returns the sample resume's bullets byte-for-byte
+    unchanged rather than reword them, even when the planner suggests real changes. Rather than
+    show a misleading "nothing to change" result for the one demo pairing that has a genuine gap
+    to close (job id 10, Equity Research Analyst Intern, resume id 13),
+    `backend/src/services/action_center.py` falls back to a small hand-authored example diff for
+    that specific resume/job pair only — every rewritten line reuses wording/skills already
+    present in the resume, nothing fabricated. Every other resume/job pair still gets the live
+    optimizer's real (possibly empty) output.
+  - **Tell me what to learn** — also returned by `GET /jobs/:id/actions` (a `skills` list built
+    by `build_skill_gaps` in the same file). For each of the job's real missing requirements
+    (from the optimizer's evaluation step), it counts how many *other* seeded jobs also need it
+    (matching on the phrase or a meaningful keyword within it — a generic word like "modelling"
+    or "experience" doesn't count on its own) and estimates a salary premium by comparing the
+    average listed salary of jobs that mention it against jobs that don't. Both numbers come
+    from the 6 seeded jobs only, so with such a small dataset they're a rough signal, not a
+    robust estimate — a non-positive premium is reported as "No premium" rather than forced into
+    a reassuring-looking figure. "Weeks to a working level" is a small hardcoded per-skill table
+    (same estimates `GET /jobs/unlocks` already used), since no real training-duration data exists
+    anywhere in this app.
 - **COMPASS / Employment Pass scoring** (`GET /jobs/:id/compass`) — estimates C1 Salary (from the
   job's listed salary band), C2 Qualifications (keyword match on the resume's highest degree),
   and C5 Skills bonus (keyword overlap between resume skills and the job description) from data
@@ -172,7 +185,7 @@ Playwright) live in [`.claude/screenshots/`](.claude/screenshots/):
 | `07-watch.png`    | `/watch` — overnight watch toggle                    |
 | `08-track.png`    | `/track` — application tracker                       |
 | `09-act-tailor.png` | `/act?job=` — "Tailor my resume" tab (real `/jobs/:id/actions` data)  |
-| `09-act-learn.png`  | `/act?job=` — "Tell me what to learn" tab (fixture data)          |
+| `09-act-learn.png`  | `/act?job=` — "Tell me what to learn" tab (real `/jobs/:id/actions` data)  |
 | `09-act-prep.png`   | `/act?job=` — "Prepare me for the interview" tab (fixture data)   |
 | `09-act-reach.png`  | `/act?job=` — "Help me contact someone" tab (fixture data)        |
 
@@ -183,11 +196,14 @@ easier-fitting jobs, because the sample resume clears most of those without need
 this job leaves a real, visible gap for the tailor tab to close. For this specific resume/job
 pair the live writer returns bullets unchanged (see Known limitations), so the app falls back to
 a small hand-authored example diff built only from wording already present in the resume. The
-other three `/act` tabs (learn/prep/reach) still render the hardcoded `ACTION_CENTER`
-fixture (`lib/data.ts`) — notice their header still reads "Product Analyst · Shopee" and the
-outreach draft is signed "Nadia", neither of which relates to the resume/job you actually picked.
-This is intentional per scope (no backend equivalent exists yet for those three tabs) — see
-Known limitations below.
+"Tell me what to learn" tab is also real now — its `skills` list is ranked by how many *other*
+seeded jobs share each of this job's actual missing requirements, plus a rough salary-premium
+estimate computed from the seeded jobs' salary fields (see Known limitations for the matching
+and small-sample caveats). The other two `/act` tabs (prep/reach) still render the hardcoded
+`ACTION_CENTER` fixture (`lib/data.ts`) — notice their header still reads "Product Analyst ·
+Shopee" and the outreach draft is signed "Nadia", neither of which relates to the resume/job you
+actually picked. This is intentional per scope (no backend equivalent exists yet for those two
+tabs) — see Known limitations below.
 
 ## Layout
 
