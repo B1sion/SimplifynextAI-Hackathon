@@ -12,7 +12,7 @@ from src.Tools.job_tools import add_job
 from src.Tools.optimization_tools import create_optimization_run, create_resume_version
 from src.Tools.person_tools import create_person
 from src.Tools.resume_tools import create_resume
-from src.app.main import list_jobs, optimization_run, optimization_versions, resume_facts
+from src.app.main import jobs_summary, list_jobs, optimization_run, optimization_versions, resume_facts, match_job
 
 
 class ApiTest(unittest.TestCase):
@@ -57,6 +57,18 @@ class ApiTest(unittest.TestCase):
         with self.assertRaises(HTTPException) as context:
             list_jobs(resume_id=999)
         self.assertEqual(context.exception.status_code, 404)
+
+    def test_jobs_summary_counts_verdicts(self):
+        add_job("Second Role", "Needs Rust", "Engineering", company_name="Other Co")
+        with patch("src.services.job_ranking.evaluate_resume", side_effect=[
+            ATSReport(ats_score=80.0),
+            ATSReport(ats_score=40.0),
+        ]):
+            summary = jobs_summary(resume_id=self.resume_id)
+        self.assertEqual(summary["totalRoles"], 2)
+        self.assertEqual(summary["canApply"], 1)
+        self.assertEqual(summary["cannotApply"], 1)
+        self.assertEqual(summary["mightNotQualify"], 0)
 
     def test_resume_facts_returns_fact_groups(self):
         from src.Tools.skill_tools import add_skill_to_resume, create_skill

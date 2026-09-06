@@ -19,7 +19,7 @@ from src.agents.resume_agents.job_parser import parse_job
 from src.agents.resume_ingestion import ingest_resume
 from src.services.job_ranking import rank_jobs_for_resume
 from src.services.optimization_engine import optimize_resume
-from src.services.presenters import WORK_PASS_STUB, facts_to_groups, job_to_frontend, match_requirements_to_frontend
+from src.services.presenters import WORK_PASS_STUB, facts_to_groups, job_to_frontend, match_requirements_to_frontend, verdict_for_score
 from src.services.resume_renderer import GENERATED_RESUMES_DIR
 
 
@@ -83,6 +83,22 @@ def list_jobs(resume_id: int | None = None, mode: str = "browse") -> list[dict[s
 	else:
 		jobs.sort(key=lambda job: job["title"].casefold())
 	return jobs
+
+
+@app.get("/jobs/summary")
+def jobs_summary(resume_id: int | None = Query(default=None)) -> dict[str, int]:
+	resume_record = get_resume(resume_id) if resume_id is not None else get_latest_resume()
+	resume = get_full_resume(resume_record["id"]) if resume_record is not None else None
+	ranked = rank_jobs_for_resume(resume, BedrockNovaClient())
+	counts = {"v": 0, "c": 0, "b": 0}
+	for entry in ranked:
+		counts[verdict_for_score(entry["score"] if resume is not None else 0)] += 1
+	return {
+		"totalRoles": len(ranked),
+		"canApply": counts["v"],
+		"mightNotQualify": counts["c"],
+		"cannotApply": counts["b"],
+	}
 
 
 @app.get("/resumes/{resume_id}/facts")
