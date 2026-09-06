@@ -6,11 +6,13 @@ from uuid import uuid4
 from fastapi import FastAPI, File, HTTPException, Query, UploadFile
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import FileResponse
+from pydantic import BaseModel
 
 from database.database import initialize_database
 from src.Tools.evaluation_tools import save_evaluation
 from src.Tools.job_tools import get_all_jobs, get_job
 from src.Tools.optimization_tools import create_optimization_run, create_resume_version, get_optimization_context, get_resume_versions
+from src.Tools.profile_tools import save_profile_answers
 from src.Tools.resume_tools import get_full_resume, get_latest_resume, get_resume
 from src.agents.resume_agents.bedrock_client import BedrockClientError, BedrockNovaClient
 from src.agents.resume_agents.contracts import ATSReport
@@ -26,6 +28,33 @@ from src.services.resume_renderer import GENERATED_RESUMES_DIR
 ROOT_DIR = Path(__file__).resolve().parents[2]
 ORIGINAL_RESUMES_DIR = ROOT_DIR / "storage" / "original_resumes"
 MAX_UPLOAD_BYTES = 10 * 1024 * 1024
+
+
+class SaveProfileBody(BaseModel):
+	answers: dict[str, int]
+
+
+_PROFILE_QUESTIONS: list[dict[str, Any]] = [
+	{
+		"id": "work-status",
+		"question": "What is your work status in Singapore?",
+		"options": ["Citizen or PR", "Needs an Employment Pass", "On a student pass"],
+		"defaultPick": 1,
+	},
+	{
+		"id": "qualification",
+		"question": "Highest completed qualification",
+		"options": ["Diploma", "Bachelor's", "Master's or above"],
+		"defaultPick": 1,
+	},
+	{
+		"id": "experience",
+		"question": "Years of full-time work experience",
+		"options": ["Under 1", "1 to 3", "3 to 5", "5 or more"],
+		"defaultPick": 0,
+	},
+]
+
 
 app = FastAPI(title="Simplify Resume API")
 
@@ -65,6 +94,19 @@ def startup() -> None:
 @app.get("/health")
 def health() -> dict[str, str]:
 	return {"status": "ok"}
+
+
+@app.get("/profile/questions")
+def profile_questions() -> list[dict[str, Any]]:
+	return _PROFILE_QUESTIONS
+
+
+@app.put("/profile", status_code=204)
+def save_profile(body: SaveProfileBody, resume_id: int | None = Query(default=None)) -> None:
+	resume_record = get_resume(resume_id) if resume_id is not None else get_latest_resume()
+	if resume_record is None:
+		raise HTTPException(status_code=404, detail="No resume uploaded yet")
+	save_profile_answers(resume_record["person_id"], body.answers)
 
 
 @app.get("/jobs")

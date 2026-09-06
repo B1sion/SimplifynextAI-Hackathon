@@ -11,8 +11,20 @@ from src.agents.resume_agents.contracts import ATSReport
 from src.Tools.job_tools import add_job
 from src.Tools.optimization_tools import create_optimization_run, create_resume_version
 from src.Tools.person_tools import create_person
-from src.Tools.resume_tools import create_resume
-from src.app.main import jobs_compass, jobs_summary, jobs_unlocks, list_jobs, optimization_run, optimization_versions, resume_facts, match_job
+from src.Tools.resume_tools import create_resume, get_resume
+from src.app.main import (
+    SaveProfileBody,
+    jobs_compass,
+    jobs_summary,
+    jobs_unlocks,
+    list_jobs,
+    match_job,
+    optimization_run,
+    optimization_versions,
+    profile_questions,
+    resume_facts,
+    save_profile,
+)
 
 
 class ApiTest(unittest.TestCase):
@@ -158,6 +170,34 @@ class ApiTest(unittest.TestCase):
     def test_jobs_compass_missing_job_returns_404(self):
         with self.assertRaises(Exception):
             jobs_compass(999)
+
+    def test_profile_questions_returns_static_catalog(self):
+        questions = profile_questions()
+        ids = [question["id"] for question in questions]
+        self.assertIn("work-status", ids)
+        self.assertIn("qualification", ids)
+        self.assertIn("experience", ids)
+
+    def test_save_profile_persists_answers(self):
+        from src.Tools.profile_tools import get_profile_answers
+
+        save_profile(SaveProfileBody(answers={"work-status": 1}), resume_id=self.resume_id)
+        person_id = get_resume(self.resume_id)["person_id"]
+        answers = get_profile_answers(person_id)
+        self.assertEqual(answers[0]["question_id"], "work-status")
+        self.assertEqual(answers[0]["selected_index"], 1)
+
+    def test_save_profile_without_any_resume_returns_404(self):
+        with tempfile.TemporaryDirectory() as empty_dir:
+            original_path = database.DATABASE_PATH
+            database.DATABASE_PATH = Path(empty_dir) / "empty.db"
+            initialize_database()
+            try:
+                with self.assertRaises(HTTPException) as context:
+                    save_profile(SaveProfileBody(answers={"work-status": 1}), resume_id=None)
+                self.assertEqual(context.exception.status_code, 404)
+            finally:
+                database.DATABASE_PATH = original_path
 
 
 if __name__ == "__main__":
