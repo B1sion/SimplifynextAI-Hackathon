@@ -29,6 +29,24 @@ class PipelineTest(unittest.TestCase):
         with self.assertRaises(AgentCoreError):
             evaluate_resume({"name": "Ada"}, parse_job({"job_title": "Engineer", "job_description": "Python"}), client)
 
+    def test_evaluator_validates_mocked_ats_report(self):
+        class MockEvaluator:
+            def evaluate_resume(self, resume, job):
+                self.resume = resume
+                self.job = job
+                return {"ats_score": 72, "summary": "Strong technical alignment", "matched_skills": ["Python"], "keyword_gaps": ["Kubernetes"]}
+
+        client = MockEvaluator()
+        report = evaluate_resume(
+            {"name": "Ada", "raw_text": "Python", "skills": ["Python"]},
+            parse_job({"job_title": "Engineer", "job_description": "Python"}),
+            client,
+        )
+
+        self.assertEqual(report.ats_score, 72)
+        self.assertEqual(report.matched_skills, ["Python"])
+        self.assertEqual(report.keyword_gaps, ["Kubernetes"])
+
     def test_optimization_preserves_versions_and_stops_on_small_improvement(self):
         person_id = create_person("Ada Lovelace")
         resume_json = {"name": "Ada Lovelace", "raw_text": "Python", "skills": ["Python"], "work_experience": [], "education": [], "projects": []}

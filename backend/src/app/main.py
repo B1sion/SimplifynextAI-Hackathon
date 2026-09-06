@@ -8,7 +8,7 @@ from src.Tools.evaluation_tools import save_evaluation
 from src.Tools.job_tools import get_job
 from src.Tools.optimization_tools import create_optimization_run, create_resume_version
 from src.Tools.resume_tools import get_full_resume, get_latest_resume
-from src.agents.resume_agents.agentcore_client import AgentCoreClient, AgentCoreError
+from src.agents.resume_agents.bedrock_client import BedrockClientError, BedrockNovaClient
 from src.agents.resume_agents.evaluator import evaluate_resume
 from src.agents.resume_agents.job_parser import parse_job
 from src.agents.resume_ingestion import ingest_resume
@@ -75,8 +75,8 @@ def match_job(job_id: int, resume_id: int | None = Query(default=None)) -> dict:
 	resume = get_full_resume(resume_record["id"])
 	try:
 		job_ir = parse_job(job)
-		report = evaluate_resume(resume, job_ir, AgentCoreClient())
-	except AgentCoreError as error:
+		report = evaluate_resume(resume, job_ir, BedrockNovaClient())
+	except BedrockClientError as error:
 		raise HTTPException(status_code=503, detail=str(error)) from error
 	run = create_optimization_run(resume_record["id"], job_id, max_iterations=3)
 	version = create_resume_version(run["id"], resume_record.get("resume_json") or resume)
@@ -104,8 +104,8 @@ def match_job(job_id: int, resume_id: int | None = Query(default=None)) -> dict:
 @app.post("/jobs/{job_id}/optimize")
 def optimize_job(job_id: int, resume_id: int = Query(...), max_iterations: int = Query(default=3, ge=1, le=10), min_score_improvement: float = Query(default=2, ge=0), target_score: float = Query(default=85, ge=0, le=100)) -> dict:
 	try:
-		return optimize_resume(resume_id, job_id, AgentCoreClient(), max_iterations, min_score_improvement, target_score)
+		return optimize_resume(resume_id, job_id, BedrockNovaClient(), max_iterations, min_score_improvement, target_score)
 	except ValueError as error:
 		raise HTTPException(status_code=404, detail=str(error)) from error
-	except AgentCoreError as error:
+	except BedrockClientError as error:
 		raise HTTPException(status_code=503, detail=str(error)) from error

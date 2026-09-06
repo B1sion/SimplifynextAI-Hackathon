@@ -33,19 +33,25 @@ class JobIR(BaseModel):
     domain_keywords: list[str] = Field(default_factory=list)
 
 
-class EvaluationReport(BaseModel):
-    overall_score: float = Field(ge=0, le=100)
-    component_scores: dict[str, float] = Field(default_factory=dict)
-    matched_skills: list[str] = Field(default_factory=list)
-    missing_skills: list[str] = Field(default_factory=list)
-    matched_requirements: list[str] = Field(default_factory=list)
-    partially_matched_requirements: list[str] = Field(default_factory=list)
-    missing_requirements: list[str] = Field(default_factory=list)
+class ATSReport(BaseModel):
+    ats_score: float = Field(ge=0, le=100)
+    summary: str = ""
     strengths: list[str] = Field(default_factory=list)
     weaknesses: list[str] = Field(default_factory=list)
-    recommendations: list[str] = Field(default_factory=list)
-    keyword_analysis: dict[str, Any] = Field(default_factory=dict)
-    supporting_resume_evidence: dict[str, list[str]] = Field(default_factory=dict)
+    matched_skills: list[str] = Field(default_factory=list)
+    missing_skills: list[str] = Field(default_factory=list)
+    keyword_gaps: list[str] = Field(default_factory=list)
+    experience_gaps: list[str] = Field(default_factory=list)
+    ats_issues: list[str] = Field(default_factory=list)
+    high_priority_improvements: list[str] = Field(default_factory=list)
+
+    @property
+    def overall_score(self) -> float:
+        """Compatibility accessor for existing API callers."""
+        return self.ats_score
+
+
+EvaluationReport = ATSReport
 
 
 class PlannedChange(BaseModel):
