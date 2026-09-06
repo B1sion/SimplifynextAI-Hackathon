@@ -135,6 +135,32 @@ def watch_feed(resume_id: int | None = Query(default=None)) -> dict[str, Any]:
 	}
 
 
+@app.get("/session")
+def session_summary(resume_id: int | None = Query(default=None)) -> dict[str, Any]:
+	if resume_id is not None:
+		resume_record = get_resume(resume_id)
+		if resume_record is None:
+			raise HTTPException(status_code=404, detail="Resume not found")
+	else:
+		resume_record = get_latest_resume()
+	if resume_record is None:
+		return {"candidateName": "", "factsConfirmed": 0, "claimsBlocked": 0, "lastWatchRun": "Not run yet"}
+
+	resume = get_full_resume(resume_record["id"])
+	facts_confirmed = (
+		len(resume.get("skills") or [])
+		+ sum(len(experience.get("bullets") or []) for experience in (resume.get("work_experience") or []))
+		+ len(resume.get("education") or [])
+		+ len(resume.get("projects") or [])
+	)
+	return {
+		"candidateName": (resume.get("person") or {}).get("name") or "",
+		"factsConfirmed": facts_confirmed,
+		"claimsBlocked": 0,
+		"lastWatchRun": "Not run yet",
+	}
+
+
 @app.get("/applications")
 def applications_tracker(resume_id: int | None = Query(default=None)) -> dict[str, Any]:
 	if resume_id is not None:

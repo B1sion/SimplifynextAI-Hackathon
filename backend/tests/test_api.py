@@ -25,6 +25,7 @@ from src.app.main import (
     profile_questions,
     resume_facts,
     save_profile,
+    session_summary,
     SetWatchBody,
     set_watch,
     watch_feed,
@@ -128,6 +129,38 @@ class ApiTest(unittest.TestCase):
     def test_applications_with_unknown_resume_id_returns_404(self):
         with self.assertRaises(HTTPException) as context:
             applications_tracker(resume_id=999)
+        self.assertEqual(context.exception.status_code, 404)
+
+    def test_session_summary_counts_real_facts(self):
+        from src.Tools.skill_tools import add_skill_to_resume, create_skill
+        from src.Tools.work_experience_tools import add_experience_bullet, add_work_experience
+
+        skill_id = create_skill("Python")
+        add_skill_to_resume(self.resume_id, skill_id, source="explicit")
+        experience_id = add_work_experience(self.resume_id, "Analytical Engines", "Engineer")
+        add_experience_bullet(experience_id, "Built an engine")
+
+        summary = session_summary(resume_id=self.resume_id)
+        self.assertEqual(summary["candidateName"], "Ada Lovelace")
+        self.assertEqual(summary["factsConfirmed"], 2)
+        self.assertEqual(summary["claimsBlocked"], 0)
+        self.assertEqual(summary["lastWatchRun"], "Not run yet")
+
+    def test_session_summary_without_resume_returns_defaults(self):
+        with tempfile.TemporaryDirectory() as empty_dir:
+            original_path = database.DATABASE_PATH
+            database.DATABASE_PATH = Path(empty_dir) / "empty.db"
+            initialize_database()
+            try:
+                summary = session_summary(resume_id=None)
+                self.assertEqual(summary["candidateName"], "")
+                self.assertEqual(summary["factsConfirmed"], 0)
+            finally:
+                database.DATABASE_PATH = original_path
+
+    def test_session_summary_with_unknown_resume_id_returns_404(self):
+        with self.assertRaises(HTTPException) as context:
+            session_summary(resume_id=99999)
         self.assertEqual(context.exception.status_code, 404)
 
     def test_resume_facts_returns_fact_groups(self):
