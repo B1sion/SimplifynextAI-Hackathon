@@ -265,11 +265,36 @@ export const ACTION_CENTER: ActionCenter = {
     },
   ],
   interview: [
-    { question: "Walk me through a dashboard you built and who used it.", use: "The 3 Tableau dashboards for 60+ ops staff — lead with who acted on it, not how you built it." },
-    { question: "Tell me about a time your analysis changed a decision.", use: "The pricing experiment. You have the 95% confidence figure; name the decision that followed." },
-    { question: "How would you measure success for a new checkout flow?", use: "No resume line covers this. Prepare a framework answer: guardrail metric, primary metric, segment cut." },
-    { question: "You have no Amplitude experience. How would you ramp up?", use: "Expect this — it is one of your three gaps. Say what you have done in Tableau and how the concepts map." },
-    { question: "Why product analytics rather than general BI?", use: "Your Shopee internship was ops-facing. Bridge it honestly rather than overclaiming product exposure." },
+    {
+      question: "Walk me through a dashboard you built and who used it.",
+      answer:
+        "At Shopee I built three Tableau dashboards that 60+ operations staff used daily. I worked with the regional operations leads to pin down what they needed to see each morning, then built the queries and visualisations myself. The dashboards covered order volume and delivery exceptions, and I iterated on them for about a month based on their feedback.",
+      use: "The 3 Tableau dashboards for 60+ ops staff — lead with who acted on it, not how you built it.",
+    },
+    {
+      question: "Tell me about a time your analysis changed a decision.",
+      answer:
+        "I ran two pricing experiments end to end during my Shopee internship. In one, I designed the test, tracked the results in Python, and found a lift with 95% confidence. I presented that to the operations leads, and the pricing change was rolled out to the full region afterwards.",
+      use: "The pricing experiment. You have the 95% confidence figure; name the decision that followed.",
+    },
+    {
+      question: "How would you measure success for a new checkout flow?",
+      answer:
+        "I would start with the guardrail metric — completed orders and cancellation rate, so we know we are not hurting the core flow. The primary metric would be checkout completion rate. I would also watch time-to-complete and payment error rate as secondary signals, and cut everything by device and payment method, because those segments usually behave differently.",
+      use: "No resume line covers this. Prepare a framework answer: guardrail metric, primary metric, segment cut.",
+    },
+    {
+      question: "You have no Amplitude experience. How would you ramp up?",
+      answer:
+        "That is right — I have not used Amplitude yet. What I have done is heavy Tableau work at Shopee, and the concepts map across: event tracking, funnels, cohort views. I have started the Amplitude certification this month and am rebuilding one of my old Shopee analyses in Amplitude to get hands-on practice before any interview.",
+      use: "Expect this — it is one of your three gaps. Say what you have done in Tableau and how the concepts map.",
+    },
+    {
+      question: "Why product analytics rather than general BI?",
+      answer:
+        "My Shopee internship was ops-facing, so I have seen how data drives day-to-day operations decisions. What draws me to product analytics is working closer to the product itself — understanding how users behave and why. The skills I built — Python pipelines, dashboards, experiment analysis — carry over directly, and this role is the natural next step toward that.",
+      use: "Your Shopee internship was ops-facing. Bridge it honestly rather than overclaiming product exposure.",
+    },
   ],
   recruiters: [
     { name: "Denise Koh", role: "Talent Acquisition, Product & Data", why: "Posted this role 4 days ago" },

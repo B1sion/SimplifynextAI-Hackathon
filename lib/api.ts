@@ -46,6 +46,7 @@ import type {
   CompassReport,
   DiscoverSummary,
   FactGroup,
+  InterviewPrep,
   Job,
   MatchReport,
   ProfileQuestion,
@@ -152,6 +153,13 @@ export async function fetchActionCenter(jobId: string = DEFAULT_JOB_ID): Promise
   // TODO(backend): GET /jobs/:id/actions — diffs, skill gaps, interview prep, contacts, draft.
   void jobId;
   return ACTION_CENTER;
+}
+
+export async function fetchInterviewQuestions(jobId: string = DEFAULT_JOB_ID): Promise<InterviewPrep> {
+  // Backend falls back to the latest resume when no resume_id is supplied.
+  // Known limitation: real mode needs an int job id in ?job= (backend SQLite ids);
+  // fixture slugs like "shopee-product-analyst" do not resolve.
+  return request<InterviewPrep>(`/jobs/${jobId}/interview-questions`);
 }
 
 /* ---------------------------------- watch ---------------------------------- */

@@ -13,6 +13,8 @@ from src.Tools.resume_tools import get_full_resume, get_latest_resume, get_resum
 from src.agents.resume_agents.bedrock_client import BedrockClientError, BedrockNovaClient
 from src.agents.resume_agents.contracts import ATSReport
 from src.agents.resume_agents.evaluator import evaluate_resume
+from src.agents.resume_agents.interview_agent import generate_interview_questions
+from src.agents.resume_agents.interview_validator import validate_interview
 from src.agents.resume_agents.job_parser import parse_job
 from src.agents.resume_ingestion import ingest_resume
 from src.services.optimization_engine import optimize_resume
@@ -215,6 +217,41 @@ def match_job(job_id: int, resume_id: int | None = Query(default=None)) -> dict[
 		"requirements": requirements,
 		"evaluationId": evaluation["id"],
 		"evaluation": report.model_dump(),
+	}
+
+
+@app.get("/jobs/{job_id}/interview-questions")
+def interview_questions(job_id: int, resume_id: int | None = Query(default=None)) -> dict[str, Any]:
+	job = get_job(job_id)
+	if job is None:
+		raise HTTPException(status_code=404, detail="Job not found")
+	resume_record = get_latest_resume() if resume_id is None else get_resume(resume_id)
+	if resume_record is None:
+		raise HTTPException(status_code=404, detail="Resume not found")
+	resume = get_full_resume(resume_record["id"])
+	resume_payload = resume["resume"].get("resume_json") or resume
+	try:
+		job_ir = parse_job(job)
+		client = BedrockNovaClient()
+		prep = generate_interview_questions(resume_payload, job_ir, client)
+		report = validate_interview(resume_payload, job_ir, prep, client)
+	except BedrockClientError as error:
+		raise HTTPException(status_code=503, detail=str(error)) from error
+	verdicts = {verdict.question: verdict for verdict in report.verdicts}
+	questions, blocked = [], []
+	for question in prep.questions:
+		verdict = verdicts.get(question.question)
+		if verdict is not None and not verdict.valid:
+			blocked.append({"question": question.question, "reason": "; ".join(verdict.issues)})
+		else:
+			questions.append({"question": question.question, "answer": question.answer, "use": question.use})
+	return {
+		"jobId": str(job_id),
+		"jobTitle": job["job_title"],
+		"company": job.get("company_name") or "",
+		"category": job.get("category") or "",
+		"questions": questions,
+		"blocked": blocked,
 	}
 
 

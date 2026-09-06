@@ -103,6 +103,24 @@ class BedrockNovaClient:
             {"authoritative_resume": authoritative_resume, "candidate_resume": candidate_resume},
         )
 
+    def generate_interview_questions(self, resume: dict[str, Any], job: dict[str, Any]) -> dict[str, Any]:
+        return self.generate_json(
+            self._load_prompt(
+                "Interview_questions.md",
+                "Act as a demanding interview coach and return only the InterviewPrep JSON object.",
+            ),
+            {"resume": resume, "job": job},
+        )
+
+    def validate_interview(self, resume: dict[str, Any], job: dict[str, Any], interview_prep: dict[str, Any]) -> dict[str, Any]:
+        return self.generate_json(
+            self._load_prompt(
+                "Interview_validator.md",
+                "Act as an interview answer validator and return only the InterviewValidationReport JSON object.",
+            ),
+            {"resume": resume, "job": job, "interview_prep": interview_prep},
+        )
+
     def orchestrate(self, state: dict[str, Any]) -> dict[str, Any]:
         return self.generate_json(
             self._load_prompt(

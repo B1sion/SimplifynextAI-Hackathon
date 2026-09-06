@@ -1,8 +1,9 @@
 "use client";
 
-import { useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import { Button, ButtonLink, Card, Nav, SectionHead } from "@/components/ui";
-import type { ActionCenter } from "@/lib/types";
+import { API_BASE_URL, fetchInterviewQuestions } from "@/lib/api";
+import type { ActionCenter, InterviewPrep, InterviewQuestion } from "@/lib/types";
 
 type TabId = "tailor" | "learn" | "prep" | "reach";
 
@@ -173,34 +174,120 @@ function LearnTab({ center }: { center: ActionCenter }) {
 /* -------------------------------- prep --------------------------------- */
 
 function PrepTab({ center }: { center: ActionCenter }) {
+  const [prep, setPrep] = useState<InterviewPrep | null>(null);
+  const [status, setStatus] = useState<"idle" | "loading" | "error">(API_BASE_URL ? "loading" : "idle");
+  const [error, setError] = useState("");
+
+  const load = useCallback(async () => {
+    try {
+      setPrep(await fetchInterviewQuestions(center.jobId));
+      setStatus("idle");
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Could not load interview questions.");
+      setStatus("error");
+    }
+  }, [center.jobId]);
+
+  useEffect(() => {
+    if (!API_BASE_URL) return;
+    const timer = setTimeout(() => void load(), 0);
+    return () => clearTimeout(timer);
+  }, [load]);
+
+  const questions: InterviewQuestion[] = prep ? prep.questions : center.interview;
+
   return (
     <>
       <p className="sub">
-        Likely questions for this role, including the ones that will poke at your gaps. Each is paired with the story
-        from your own resume to answer it with.
+        {prep
+          ? `Questions generated from your resume for ${prep.jobTitle}${prep.category ? ` (${prep.category})` : ""}.`
+          : "Likely questions for this role, including the ones that will poke at your gaps. Each is paired with the story from your own resume to answer it with."}
       </p>
-      <Card>
-        {center.interview.map((q, i) => (
-          <div
-            key={q.question}
-            style={{ padding: "18px 24px", borderBottom: i < center.interview.length - 1 ? "1px solid var(--rule2)" : "none" }}
-          >
-            <div style={{ fontSize: 15, fontWeight: 600, lineHeight: 1.45 }}>{q.question}</div>
-            <div
-              style={{
-                marginTop: 10,
-                paddingLeft: 13,
-                borderLeft: "3px solid var(--mark)",
-                fontSize: 13.5,
-                color: "var(--ink2)",
-                lineHeight: 1.6,
-              }}
-            >
-              {q.use}
+
+      {status === "loading" && (
+        <Card>
+          <div style={{ padding: "26px 24px", display: "flex", alignItems: "center", gap: 10 }}>
+            <i className="pulse live" />
+            <span style={{ fontSize: 14.5 }}>Generating questions from your resume…</span>
+          </div>
+        </Card>
+      )}
+
+      {status === "error" && (
+        <Card>
+          <div style={{ padding: "26px 24px" }}>
+            <div style={{ fontSize: 14.5, lineHeight: 1.6 }}>Could not generate interview questions.</div>
+            <div style={{ fontSize: 12.5, color: "var(--ink3)", marginTop: 6, lineHeight: 1.5 }}>{error}</div>
+            <div style={{ marginTop: 14 }}>
+              <Button
+                sm
+                onClick={() => {
+                  setError("");
+                  setStatus("loading");
+                  void load();
+                }}
+              >
+                Try again
+              </Button>
             </div>
           </div>
-        ))}
-      </Card>
+        </Card>
+      )}
+
+      {status !== "loading" && status !== "error" && (
+        <>
+          {prep && prep.blocked.length > 0 && (
+            <div className="blockcard">
+              <div className="blockhead">
+                <i className="pulse stop" />
+                Validator blocked {prep.blocked.length} question{prep.blocked.length === 1 ? "" : "s"}
+              </div>
+              <div style={{ padding: "17px 22px" }}>
+                {prep.blocked.map((b, i) => (
+                  <div
+                    key={b.question}
+                    style={{
+                      paddingTop: i === 0 ? 0 : 14,
+                      marginTop: i === 0 ? 0 : 14,
+                      borderTop: i === 0 ? "none" : "1px solid rgba(158,43,43,.22)",
+                    }}
+                  >
+                    <div style={{ fontSize: 11.5, color: "var(--block)", marginBottom: 7 }}>The coach proposed</div>
+                    <div className="strike" style={{ fontSize: 14, lineHeight: 1.55 }}>
+                      {b.question}
+                    </div>
+                    <div style={{ marginTop: 10, fontSize: 13.5, lineHeight: 1.65 }}>{b.reason}</div>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
+
+          <Card>
+            {questions.map((q, i) => (
+              <div
+                key={q.question}
+                style={{ padding: "18px 24px", borderBottom: i < questions.length - 1 ? "1px solid var(--rule2)" : "none" }}
+              >
+                <div style={{ fontSize: 15, fontWeight: 600, lineHeight: 1.45 }}>{q.question}</div>
+                <div style={{ marginTop: 10, fontSize: 14, lineHeight: 1.65 }}>{q.answer}</div>
+                <div
+                  style={{
+                    marginTop: 12,
+                    paddingLeft: 13,
+                    borderLeft: "3px solid var(--mark)",
+                    fontSize: 13,
+                    color: "var(--ink2)",
+                    lineHeight: 1.6,
+                  }}
+                >
+                  {q.use}
+                </div>
+              </div>
+            ))}
+          </Card>
+        </>
+      )}
     </>
   );
 }
