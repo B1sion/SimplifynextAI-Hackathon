@@ -20,8 +20,8 @@ export function UploadDrop() {
     setFileName(file.name);
     setBusy(true);
     try {
-      await uploadResume(file);
-      router.push("/facts");
+      const { resumeId } = await uploadResume(file);
+      router.push(`/facts?resume_id=${encodeURIComponent(resumeId)}`);
     } finally {
       setBusy(false);
     }

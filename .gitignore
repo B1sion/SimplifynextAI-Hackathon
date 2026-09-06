@@ -44,3 +44,10 @@ yarn-error.log*
 *.tsbuildinfo
 next-env.d.ts
 
+.superpowers/
+.agents/
+.claude/skills/
+skills-lock.json
+
+# generated resume PDFs from local optimize runs (test artifacts)
+backend/storage/generated_resumes/*.pdf

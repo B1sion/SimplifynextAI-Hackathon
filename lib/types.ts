@@ -162,7 +162,7 @@ export interface ActionCenter {
   company: string;
   met: number;
   total: number;
-  blocked: BlockedClaim;
+  blocked?: BlockedClaim;
   diffs: ResumeDiff[];
   skills: SkillGap[];
   interview: InterviewQuestion[];

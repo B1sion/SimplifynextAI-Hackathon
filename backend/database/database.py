@@ -181,6 +181,43 @@ def initialize_database() -> None:
                 plan_json TEXT NOT NULL,
                 created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
             );
+
+            CREATE TABLE IF NOT EXISTS profile_answers (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                person_id INTEGER NOT NULL REFERENCES people(id) ON DELETE CASCADE,
+                question_id TEXT NOT NULL,
+                selected_index INTEGER NOT NULL,
+                created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                UNIQUE (person_id, question_id)
+            );
+
+            CREATE TABLE IF NOT EXISTS compass_reports (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                person_id INTEGER NOT NULL REFERENCES people(id) ON DELETE CASCADE,
+                job_id INTEGER NOT NULL REFERENCES jobs(id) ON DELETE CASCADE,
+                needed INTEGER NOT NULL,
+                criteria_json TEXT NOT NULL,
+                closing_the_gap TEXT,
+                disclaimer TEXT,
+                created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                UNIQUE (person_id, job_id)
+            );
+
+            CREATE TABLE IF NOT EXISTS watch_settings (
+                person_id INTEGER PRIMARY KEY REFERENCES people(id) ON DELETE CASCADE,
+                enabled INTEGER NOT NULL DEFAULT 0,
+                updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+            );
+
+            CREATE TABLE IF NOT EXISTS applications (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                person_id INTEGER NOT NULL REFERENCES people(id) ON DELETE CASCADE,
+                job_id INTEGER NOT NULL REFERENCES jobs(id) ON DELETE CASCADE,
+                status TEXT NOT NULL DEFAULT 'applied',
+                verdict TEXT NOT NULL DEFAULT 'v' CHECK (verdict IN ('v', 'c', 'b')),
+                sent_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+            );
             """
         )
         connection.commit()
