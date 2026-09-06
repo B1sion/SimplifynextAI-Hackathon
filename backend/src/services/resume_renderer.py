@@ -9,9 +9,11 @@ from reportlab.lib.pagesizes import LETTER
 from reportlab.lib.styles import ParagraphStyle, getSampleStyleSheet
 from reportlab.lib.units import inch
 from reportlab.platypus import HRFlowable, KeepTogether, Paragraph, SimpleDocTemplate, Spacer, Table, TableStyle
+from src.services.resume_policy import gpa_meets_first_class_threshold, omit_low_gpa
 
 
 GENERATED_RESUMES_DIR = Path(__file__).resolve().parents[2] / "storage" / "generated_resumes"
+RESUME_TEMPLATE_PATH = Path(__file__).resolve().parents[2] / "storage" / "2025-template_bullet.docx"
 
 
 def _value(value: Any) -> str:
@@ -33,34 +35,41 @@ def _date_range(item: dict[str, Any]) -> str:
     return " - ".join(part for part in (start, end) if part)
 
 
+def _contact_values(resume: dict[str, Any]) -> list[str]:
+    values = [resume.get("email"), resume.get("phone"), resume.get("linkedin_url"), resume.get("github_url"), resume.get("portfolio_url")]
+    values.extend(resume.get("other_urls") or [])
+    unique: list[str] = []
+    for value in values:
+        if value and value not in unique:
+            unique.append(str(value))
+    return unique
+
+
 def _add_section(story: list[Any], title: str, section_style: ParagraphStyle) -> None:
-    story.append(Spacer(1, 0.1 * inch))
-    rule = HRFlowable(width="100%", thickness=0.7, color=colors.HexColor("#222222"), spaceBefore=4)
-    section = Table([[Paragraph(title.upper(), section_style), rule]], colWidths=[1.2 * inch, 5.8 * inch])
-    section.setStyle(TableStyle([
-        ("VALIGN", (0, 0), (-1, -1), "MIDDLE"),
-        ("LEFTPADDING", (0, 0), (-1, -1), 0),
-        ("RIGHTPADDING", (0, 0), (-1, -1), 0),
-        ("TOPPADDING", (0, 0), (-1, -1), 0),
-        ("BOTTOMPADDING", (0, 0), (-1, -1), 0),
-    ]))
-    story.append(section)
+    story.append(Spacer(1, 0.08 * inch))
+    story.append(Paragraph(title.upper(), section_style))
+    story.append(HRFlowable(width="100%", thickness=0.55, color=colors.HexColor("#222222"), spaceBefore=1, spaceAfter=4))
 
 
 def _add_entry(
     story: list[Any],
-    heading: str,
+    primary: str,
+    secondary: str,
     date_range: str,
+    location: str,
     details: list[Any],
     heading_style: ParagraphStyle,
+    secondary_style: ParagraphStyle,
     metadata_style: ParagraphStyle,
 ) -> None:
     entry: list[Any] = []
-    if heading or date_range:
-        header = Table(
-            [[_paragraph(heading, heading_style), _paragraph(date_range, metadata_style)]],
-            colWidths=[5.25 * inch, 1.75 * inch],
-        )
+    if primary or secondary or date_range or location:
+        rows = []
+        if primary or location:
+            rows.append([_paragraph(primary, heading_style), _paragraph(location, metadata_style)])
+        if secondary or date_range:
+            rows.append([_paragraph(secondary, secondary_style), _paragraph(date_range, metadata_style)])
+        header = Table(rows, colWidths=[5.35 * inch, 1.65 * inch])
         header.setStyle(TableStyle([
             ("VALIGN", (0, 0), (-1, -1), "TOP"),
             ("ALIGN", (1, 0), (1, 0), "RIGHT"),
@@ -98,8 +107,8 @@ def render_resume_pdf(
         "ResumeContact",
         parent=styles["Normal"],
         alignment=TA_CENTER,
-        fontSize=9,
-        leading=12,
+        fontSize=8.5,
+        leading=10,
         textColor=colors.HexColor("#444444"),
         spaceAfter=10,
     )
@@ -121,6 +130,14 @@ def render_resume_pdf(
         fontName="Helvetica-Bold",
         fontSize=10,
         leading=13,
+        spaceAfter=1,
+        keepWithNext=True,
+    )
+    secondary_style = ParagraphStyle(
+        "ResumeEntrySecondary",
+        parent=styles["Normal"],
+        fontSize=9,
+        leading=12,
         spaceAfter=1,
         keepWithNext=True,
     )
@@ -152,31 +169,23 @@ def render_resume_pdf(
 
     story: list[Any] = []
     story.append(Paragraph(_value(resume.get("name") or "Resume"), name_style))
-    contacts = [
-        resume.get("email"),
-        resume.get("phone"),
-        resume.get("linkedin_url"),
-        resume.get("github_url"),
-    ]
-    contact_text = " | ".join(_value(value) for value in contacts if value)
+    contact_text = " | ".join(_value(value) for value in _contact_values(resume))
     if contact_text:
         story.append(Paragraph(contact_text, contact_style))
-
-    if resume.get("summary"):
-        _add_section(story, "Summary", section_style)
-        story.append(_paragraph(resume["summary"], body_style))
 
     education = resume.get("education") or []
     if education:
         _add_section(story, "Education", section_style)
-        for item in education:
+        for item in omit_low_gpa(education):
             institution = item.get("institution") or ""
             degree = item.get("degree") or item.get("studyType") or ""
-            heading = " | ".join(part for part in (institution, degree) if part)
             details = []
+            grade = item.get("gpa") or item.get("GPA") or item.get("grade")
+            if grade and gpa_meets_first_class_threshold(grade):
+                details.append(_paragraph(f"GPA: {grade}", body_style))
             if item.get("description"):
                 details.append(_paragraph(item["description"], body_style))
-            _add_entry(story, heading, _date_range(item), details, heading_style, metadata_style)
+            _add_entry(story, institution, degree, _date_range(item), item.get("location") or "", details, heading_style, secondary_style, metadata_style)
 
     work = resume.get("work_experience") or resume.get("work") or []
     if work:
@@ -184,7 +193,6 @@ def render_resume_pdf(
         for item in work:
             company = item.get("company_name") or item.get("name") or ""
             title = item.get("job_title") or item.get("position") or ""
-            heading = " | ".join(part for part in (company, title) if part)
             details = []
             bullets = item.get("bullets") or item.get("highlights") or []
             if bullets:
@@ -192,11 +200,11 @@ def render_resume_pdf(
                     details.append(Paragraph(_value(_clean_bullet(bullet)), bullet_style, bulletText="•"))
             elif item.get("description"):
                 details.append(_paragraph(item["description"], body_style))
-            _add_entry(story, heading, _date_range(item), details, heading_style, metadata_style)
+            _add_entry(story, company, title, _date_range(item), item.get("location") or "", details, heading_style, secondary_style, metadata_style)
 
     projects = resume.get("projects") or []
     if projects:
-        _add_section(story, "Projects", section_style)
+        _add_section(story, "Leadership & Activities", section_style)
         for item in projects:
             name = item.get("project_name") or item.get("name") or ""
             details = []
@@ -204,17 +212,19 @@ def render_resume_pdf(
                 details.append(_paragraph(item["description"], body_style))
             for bullet in item.get("bullets") or item.get("highlights") or []:
                 details.append(Paragraph(_value(_clean_bullet(bullet)), bullet_style, bulletText="•"))
-            _add_entry(story, name, _date_range(item), details, heading_style, metadata_style)
+            _add_entry(story, name, "", _date_range(item), item.get("location") or "", details, heading_style, secondary_style, metadata_style)
 
     skills = resume.get("skills") or []
-    if skills:
-        _add_section(story, "Skills", section_style)
+    certifications = resume.get("certifications") or []
+    if skills or certifications:
+        _add_section(story, "Skills & Interests", section_style)
         skill_names = []
         for skill in skills:
             if isinstance(skill, dict):
                 skill_names.append(skill.get("name") or skill.get("skill") or "")
             else:
                 skill_names.append(str(skill))
+        skill_names.extend(str(item) for item in certifications)
         story.append(_paragraph(", ".join(name for name in skill_names if name), body_style))
 
     doc = SimpleDocTemplate(

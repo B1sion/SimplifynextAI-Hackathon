@@ -18,6 +18,7 @@ def ingest_resume(file_path: Path, original_file_path: str | None = None) -> dic
         phone=parsed["phone"],
         linkedin_url=parsed["linkedin_url"],
         github_url=parsed["github_url"],
+        portfolio_url=parsed.get("portfolio_url"),
     )
     resume_id = create_resume(
         person_id,

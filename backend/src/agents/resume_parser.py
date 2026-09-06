@@ -129,7 +129,8 @@ def parse_resume(text: str) -> dict[str, Any]:
     sections = _section_lines(text)
     email_match = re.search(r"[\w.+-]+@[\w-]+(?:\.[\w-]+)+", text)
     phone_match = re.search(r"(?:\+?\d[\d ()-]{7,}\d)", text)
-    urls = re.findall(r"(?:https?://|www\.)\S+", text)
+    urls = [url.rstrip(".,;)") for url in re.findall(r"(?:https?://|www\.)\S+", text)]
+    other_urls = [url for url in urls if "linkedin.com" not in url.lower() and "github.com" not in url.lower()]
     skills = [skill.strip() for line in sections["skills"] for skill in re.split(r",|\||•", line) if skill.strip()]
     return {
         "name": _first_name(text),
@@ -137,6 +138,8 @@ def parse_resume(text: str) -> dict[str, Any]:
         "phone": phone_match.group(0).strip() if phone_match else None,
         "linkedin_url": next((url for url in urls if "linkedin.com" in url.lower()), None),
         "github_url": next((url for url in urls if "github.com" in url.lower()), None),
+        "portfolio_url": next((url for url in other_urls if url.lower().startswith(("http", "www."))), None),
+        "other_urls": other_urls,
         "raw_text": text,
         "work_experience": _parse_experience(sections["experience"]),
         "education": _parse_education(sections["education"]),

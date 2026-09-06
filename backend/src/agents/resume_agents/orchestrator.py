@@ -39,7 +39,7 @@ def _fallback_recovery(
     failures = [issue.claim or issue.reason for issue in validation.unsupported_additions]
     failures.extend(validation.changed_dates)
     facts_to_restore = []
-    for field in ("email", "phone", "linkedin_url", "github_url", "work_experience", "education", "projects", "skills", "certifications"):
+    for field in ("email", "phone", "linkedin_url", "github_url", "portfolio_url", "other_urls", "work_experience", "education", "projects", "skills", "certifications"):
         if getattr(authoritative, field) and not getattr(current, field):
             facts_to_restore.append(field)
     return RecoveryDirective(

@@ -2,6 +2,7 @@ from typing import Any
 from typing import Protocol
 
 from .contracts import JobIR, ResumeIR, RewritePlan
+from src.services.resume_policy import omit_low_gpa
 
 
 class WritingModelClient(Protocol):
@@ -64,12 +65,15 @@ def rewrite_resume(resume: ResumeIR | dict[str, Any], job: JobIR | dict[str, Any
     candidate_bullets = [bullet for item in candidate.get("work_experience") or [] for bullet in item.get("bullets") or []]
     if plan_ir.changes and candidate_bullets == original_bullets:
         candidate = _apply_conservative_repairs(candidate)
+    candidate["education"] = omit_low_gpa(candidate.get("education") or [])
     preserved = resume_ir.model_dump()
-    for field in ("name", "email", "phone", "linkedin_url", "github_url", "raw_text", "work_experience", "education", "projects", "skills", "certifications"):
+    for field in ("name", "email", "phone", "linkedin_url", "github_url", "portfolio_url", "other_urls", "raw_text", "work_experience", "education", "projects", "skills", "certifications"):
         value = candidate.get(field)
         if field == "name" and (not value or value == "Unknown"):
             candidate[field] = preserved[field]
         elif field == "raw_text" and value != preserved[field]:
+            candidate[field] = preserved[field]
+        elif field in {"linkedin_url", "github_url", "portfolio_url", "other_urls"} and value != preserved[field]:
             candidate[field] = preserved[field]
         elif field in {"work_experience", "education", "projects", "skills", "certifications"} and not value and preserved[field]:
             candidate[field] = preserved[field]

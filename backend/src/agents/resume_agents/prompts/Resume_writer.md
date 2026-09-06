@@ -47,6 +47,14 @@ Use the supplied ResumeIR as content and follow these presentation rules:
 - Use a predictable order: contact header, a short targeted summary when
   supported, education for current students, relevant experience, projects or
   additional experience, then skills and certifications.
+- Keep the candidate's name first and place every supplied email, phone,
+  LinkedIn, GitHub, portfolio, and other website link on the single contact
+  line immediately below it. Do not remove or alter contact links.
+- Follow the supplied 2025 template's section order: Education, Experience,
+  Leadership & Activities, then Skills & Interests. Use Projects as the
+  source for Leadership & Activities when that is the available section.
+- Omit GPA or grade values below first-class thresholds: 4.5/5 or 3.5/4.
+  Preserve a GPA at or above those thresholds exactly when supplied.
 - Keep entries in reverse chronological order unless the RewritePlan gives a
   specific truthful reason to prioritize relevance.
 - Use consistent employer, title, date, and location patterns across every

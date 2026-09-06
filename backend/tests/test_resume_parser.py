@@ -45,6 +45,12 @@ Python, SQL | Data analysis
         self.assertEqual(parsed["projects"][0]["project_name"], "Engine")
         self.assertEqual(parsed["skills"], ["Python", "SQL", "Data analysis"])
 
+    def test_preserves_non_social_urls(self):
+        parsed = parse_resume("Ada Lovelace\nada@example.com | https://ada.example.com | https://github.com/ada\n")
+
+        self.assertEqual(parsed["portfolio_url"], "https://ada.example.com")
+        self.assertEqual(parsed["other_urls"], ["https://ada.example.com"])
+
     def test_parses_resume_headers_with_date_ranges_and_alias_sections(self):
         parsed = parse_resume(
             """EMMANUEL NG

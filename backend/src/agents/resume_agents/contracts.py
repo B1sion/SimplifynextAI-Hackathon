@@ -9,6 +9,8 @@ class ResumeIR(BaseModel):
     phone: str | None = None
     linkedin_url: str | None = None
     github_url: str | None = None
+    portfolio_url: str | None = None
+    other_urls: list[str] = Field(default_factory=list)
     summary: str | None = None
     raw_text: str = ""
     work_experience: list[dict[str, Any]] = Field(default_factory=list)
