@@ -64,7 +64,14 @@ or return `503` (the single-job endpoints). Everything else works with no AWS se
 | `/watch`    | Overnight watch | `GET /watch`, `PUT /watch`                                          |
 | `/track`    | Track progress  | `GET /applications`                                                 |
 
-`/match`, `/pass` and `/act` accept `?job=<id>`. Without it they fall back to the fixture job.
+`/match`, `/pass` and `/act` accept `?job=<id>`. Without it they fall back to the first job returned
+by `GET /jobs?mode=close`.
+
+**Resume identity:** the backend is single-tenant for this MVP (no auth). Most endpoints accept an
+optional `resume_id` query param and default to the most recently uploaded resume when it's omitted.
+The one exception is `GET /resumes/:id/facts` (id is a required path param) — its id is threaded
+through the one `/` → `/facts?resume_id=` redirect right after upload; every screen after that relies
+on the "latest resume" default.
 
 ## Backend API reference
 
