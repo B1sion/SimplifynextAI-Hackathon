@@ -99,6 +99,21 @@ class ApiTest(unittest.TestCase):
         self.assertEqual(response.status_code, 200)
         self.assertEqual(response.headers["access-control-allow-origin"], "http://localhost:3000")
 
+    def test_match_job_includes_work_pass_and_evidence(self):
+        from src.Tools.skill_tools import add_skill_to_resume, create_skill
+        from src.app.main import match_job
+        from src.agents.resume_agents.contracts import ATSReport
+
+        skill_id = create_skill("Python")
+        add_skill_to_resume(self.resume_id, skill_id, source="explicit", evidence="5 years of Python")
+        fake_report = ATSReport(ats_score=80.0, matched_skills=["Python"], missing_skills=["Docker"])
+        with patch("src.app.main.evaluate_resume", return_value=fake_report):
+            response = match_job(self.job_id, resume_id=self.resume_id)
+        self.assertIn("workPass", response)
+        self.assertEqual(set(response["workPass"].keys()), {"points", "needed", "summary"})
+        met_requirement = next(r for r in response["requirements"] if r["met"])
+        self.assertEqual(met_requirement["evidence"], "5 years of Python")
+
 
 if __name__ == "__main__":
     unittest.main()

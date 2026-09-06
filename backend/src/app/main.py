@@ -19,7 +19,7 @@ from src.agents.resume_agents.job_parser import parse_job
 from src.agents.resume_ingestion import ingest_resume
 from src.services.job_ranking import rank_jobs_for_resume
 from src.services.optimization_engine import optimize_resume
-from src.services.presenters import facts_to_groups, job_to_frontend
+from src.services.presenters import WORK_PASS_STUB, facts_to_groups, job_to_frontend, match_requirements_to_frontend
 from src.services.resume_renderer import GENERATED_RESUMES_DIR
 
 
@@ -213,11 +213,11 @@ def match_job(job_id: int, resume_id: int | None = Query(default=None)) -> dict[
 	run = create_optimization_run(resume_record["id"], job_id, max_iterations=3)
 	version = create_resume_version(run["id"], resume_record.get("resume_json") or resume)
 	evaluation = save_evaluation(run["id"], version["id"], 0, report.ats_score, report.model_dump())
-	requirements = [
-		{"met": True, "text": item, "location": "Resume"}
-		for item in report.matched_skills
-	]
-	requirements.extend({"met": False, "text": item, "note": "Not found in the resume"} for item in report.missing_skills)
+	requirements = match_requirements_to_frontend(
+		matched_skills=report.matched_skills,
+		missing_skills=report.missing_skills,
+		resume_skills=resume.get("skills") or [],
+	)
 	return {
 		"jobId": str(job_id),
 		"jobTitle": job["job_title"],
@@ -228,6 +228,7 @@ def match_job(job_id: int, resume_id: int | None = Query(default=None)) -> dict[
 		"score": report.ats_score,
 		"agents": [{"name": "ATS evaluator", "ok": True, "detail": "Evaluation persisted locally"}],
 		"requirements": requirements,
+		"workPass": WORK_PASS_STUB,
 		"evaluationId": evaluation["id"],
 		"evaluation": report.model_dump(),
 	}
