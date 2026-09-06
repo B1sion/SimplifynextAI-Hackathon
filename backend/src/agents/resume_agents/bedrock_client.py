@@ -82,3 +82,9 @@ class BedrockNovaClient:
             """Act as a truthful resume writer. Return ONLY a complete ResumeIR JSON object. Apply the rewrite plan for ATS clarity, but preserve every fact, date, title, skill, employer, project, credential, and education claim unless it is already supported by the input resume. Never invent metrics or experience.""",
             {"resume": resume, "job": job, "rewrite_plan": plan},
         )
+
+    def validate_resume(self, authoritative_resume: dict[str, Any], candidate_resume: dict[str, Any]) -> dict[str, Any]:
+        return self.generate_json(
+            """Act as a resume truthfulness validator. Return ONLY valid JSON with keys valid (boolean), unsupported_additions (array of objects with category, claim, reason), changed_dates (array of strings), inflated_titles (array of strings), and summary (string). Reject unsupported facts, invented metrics, skills, technologies, responsibilities, credentials, projects, education, dates, titles, or seniority.""",
+            {"authoritative_resume": authoritative_resume, "candidate_resume": candidate_resume},
+        )
