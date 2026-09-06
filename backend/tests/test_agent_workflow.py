@@ -90,6 +90,9 @@ class AgentWorkflowTest(unittest.TestCase):
         self.assertIsInstance(plan, RewritePlan)
         self.assertIsInstance(candidate, ResumeIR)
         self.assertIsInstance(final, ATSReport)
+        self.assertEqual(candidate.name, RESUME["name"])
+        self.assertEqual(candidate.raw_text, RESUME["raw_text"])
+        self.assertEqual(candidate.skills, RESUME["skills"])
         self.assertGreaterEqual(initial.ats_score, 0)
         self.assertLessEqual(final.ats_score, 100)
 
