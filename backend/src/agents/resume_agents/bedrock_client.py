@@ -15,6 +15,9 @@ class ModelClientError(RuntimeError):
     """The model provider was unavailable or returned a non-JSON model response."""
 
 
+BedrockClientError = ModelClientError
+
+
 class JsonModelClient:
     """Shared domain methods; providers only implement generate_json."""
 

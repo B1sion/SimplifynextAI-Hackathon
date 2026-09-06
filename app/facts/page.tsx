@@ -5,8 +5,12 @@ import { fetchFacts } from "@/lib/api";
 
 export const metadata: Metadata = { title: "Check the facts" };
 
-export default async function FactsPage() {
-  const groups = await fetchFacts();
+export default async function FactsPage({ searchParams }: PageProps<"/facts">) {
+  const { resume_id: resumeId } = await searchParams;
+  if (typeof resumeId !== "string") {
+    throw new Error("Missing resume_id — upload a resume first.");
+  }
+  const groups = await fetchFacts(resumeId);
   const count = groups.reduce((sum, g) => sum + g.items.length, 0);
 
   return (
