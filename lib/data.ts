@@ -198,7 +198,7 @@ export const COMPASS_REPORT: CompassReport = {
   criteria: [
     { code: "C1", name: "Salary against the sector benchmark", detail: "This role advertises S$5,400. The 2026 benchmark for your age band in information and communications is S$5,600.", points: 0, verdict: "b" },
     { code: "C2", name: "Qualifications", detail: "NUS is on the recognised institution list, so your degree scores the standard award rather than the top band.", points: 10, verdict: "c" },
-    { code: "C3", name: "Diversity of the employer's workforce", detail: "Your nationality makes up under 5% of Shopee's professional headcount in Singapore.", points: 20, verdict: "v" },
+    { code: "C3", name: "Diversity of the employer's workforce", detail: "Your nationality makes up under 5% of Shopee's professional headcount in Singapore.", points: 10, verdict: "c" },
     { code: "C4", name: "Support for local employment", detail: "Shopee's share of local professionals sits at or above the industry median.", points: 10, verdict: "c" },
     { code: "C5", name: "Skills bonus", detail: "Product analytics appears on the Shortage Occupation List. You do not currently meet it — this is the same gap costing you the match score.", points: 0, verdict: "b" },
     { code: "C6", name: "Strategic economic priorities", detail: "Shopee does not hold a qualifying agreement with a Singapore government agency.", points: 0, verdict: "b" },
