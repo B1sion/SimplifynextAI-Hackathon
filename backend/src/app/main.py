@@ -9,6 +9,7 @@ from fastapi.responses import FileResponse
 from pydantic import BaseModel
 
 from database.database import initialize_database
+from src.Tools.application_tools import get_applications_for_person
 from src.Tools.evaluation_tools import save_evaluation
 from src.Tools.job_tools import get_all_jobs, get_job
 from src.Tools.optimization_tools import create_optimization_run, create_resume_version, get_optimization_context, get_resume_versions
@@ -131,6 +132,38 @@ def watch_feed(resume_id: int | None = Query(default=None)) -> dict[str, Any]:
 		"scope": "Overnight watch has not run yet.",
 		"enabled": enabled,
 		"events": [],
+	}
+
+
+@app.get("/applications")
+def applications_tracker(resume_id: int | None = Query(default=None)) -> dict[str, Any]:
+	if resume_id is not None:
+		resume_record = get_resume(resume_id)
+		if resume_record is None:
+			raise HTTPException(status_code=404, detail="Resume not found")
+	else:
+		resume_record = get_latest_resume()
+	rows: list[dict[str, Any]] = []
+	if resume_record is not None:
+		rows = get_applications_for_person(resume_record["person_id"])
+
+	applications = []
+	for row in rows:
+		job = get_job(row["job_id"])
+		applications.append(
+			{
+				"id": str(row["id"]),
+				"job": job["job_title"] if job else "",
+				"company": (job.get("company_name") or "") if job else "",
+				"sent": str(row["sent_at"]),
+				"status": row["status"],
+				"verdict": row["verdict"],
+			}
+		)
+
+	return {
+		"metrics": [{"value": str(len(applications)), "label": "applications sent"}],
+		"applications": applications,
 	}
 
 

@@ -14,6 +14,7 @@ from src.Tools.person_tools import create_person
 from src.Tools.resume_tools import create_resume, get_resume
 from src.app.main import (
     SaveProfileBody,
+    applications_tracker,
     jobs_compass,
     jobs_summary,
     jobs_unlocks,
@@ -107,6 +108,26 @@ class ApiTest(unittest.TestCase):
     def test_jobs_unlocks_with_unknown_resume_id_returns_404(self):
         with self.assertRaises(HTTPException) as context:
             jobs_unlocks(resume_id=999)
+        self.assertEqual(context.exception.status_code, 404)
+
+    def test_applications_returns_real_empty_tracker(self):
+        tracker = applications_tracker(resume_id=self.resume_id)
+        self.assertEqual(tracker["applications"], [])
+        self.assertEqual(tracker["metrics"][0], {"value": "0", "label": "applications sent"})
+
+    def test_applications_reflects_created_rows(self):
+        from src.Tools.application_tools import create_application
+
+        person_id = get_resume(self.resume_id)["person_id"]
+        create_application(person_id, self.job_id, status="Applied", verdict="v")
+        tracker = applications_tracker(resume_id=self.resume_id)
+        self.assertEqual(len(tracker["applications"]), 1)
+        self.assertEqual(tracker["applications"][0]["job"], "Engineer")
+        self.assertEqual(tracker["metrics"][0], {"value": "1", "label": "applications sent"})
+
+    def test_applications_with_unknown_resume_id_returns_404(self):
+        with self.assertRaises(HTTPException) as context:
+            applications_tracker(resume_id=999)
         self.assertEqual(context.exception.status_code, 404)
 
     def test_resume_facts_returns_fact_groups(self):
