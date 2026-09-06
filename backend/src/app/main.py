@@ -10,7 +10,7 @@ from src.Tools.evaluation_tools import save_evaluation
 from src.Tools.job_tools import get_all_jobs, get_job
 from src.Tools.optimization_tools import create_optimization_run, create_resume_version, get_optimization_context, get_resume_versions
 from src.Tools.resume_tools import get_full_resume, get_latest_resume, get_resume
-from src.agents.resume_agents.bedrock_client import BedrockClientError, BedrockNovaClient
+from src.agents.resume_agents.bedrock_client import ModelClientError, create_model_client
 from src.agents.resume_agents.contracts import ATSReport
 from src.agents.resume_agents.evaluator import evaluate_resume
 from src.agents.resume_agents.interview_agent import generate_interview_questions
@@ -62,9 +62,9 @@ def list_jobs(resume_id: int | None = Query(default=None), mode: str = Query(def
 	try:
 		# Ranking is intentionally explicit and simple: one ATS evaluation per stored job.
 		for job in jobs:
-			report = evaluate_resume(resume, parse_job(job), BedrockNovaClient())
+			report = evaluate_resume(resume, parse_job(job), create_model_client())
 			ranked.append({**job, "score": report.ats_score, "evaluation": report.model_dump()})
-	except BedrockClientError as error:
+	except ModelClientError as error:
 		raise HTTPException(status_code=503, detail=str(error)) from error
 	ranked.sort(key=lambda item: item["score"], reverse=True)
 	return {"jobs": ranked, "ranked": True, "mode": mode}
@@ -84,8 +84,8 @@ def job_requirements(job_id: int, resume_id: int = Query(...)) -> dict[str, Any]
 	if job is None:
 		raise HTTPException(status_code=404, detail="Job not found")
 	try:
-		report = evaluate_resume(_resume_payload(resume_id), parse_job(job), BedrockNovaClient())
-	except BedrockClientError as error:
+		report = evaluate_resume(_resume_payload(resume_id), parse_job(job), create_model_client())
+	except ModelClientError as error:
 		raise HTTPException(status_code=503, detail=str(error)) from error
 	return {"jobId": str(job_id), "requirements": _requirement_checklist(report), "evaluation": report.model_dump()}
 
@@ -96,8 +96,8 @@ def job_learning_gaps(job_id: int, resume_id: int = Query(...)) -> dict[str, Any
 	if job is None:
 		raise HTTPException(status_code=404, detail="Job not found")
 	try:
-		report = evaluate_resume(_resume_payload(resume_id), parse_job(job), BedrockNovaClient())
-	except BedrockClientError as error:
+		report = evaluate_resume(_resume_payload(resume_id), parse_job(job), create_model_client())
+	except ModelClientError as error:
 		raise HTTPException(status_code=503, detail=str(error)) from error
 	gaps = list(dict.fromkeys(report.missing_skills + report.keyword_gaps + report.experience_gaps))
 	opportunities = [
@@ -194,8 +194,8 @@ def match_job(job_id: int, resume_id: int | None = Query(default=None)) -> dict[
 	resume = get_full_resume(resume_record["id"])
 	try:
 		job_ir = parse_job(job)
-		report = evaluate_resume(resume, job_ir, BedrockNovaClient())
-	except BedrockClientError as error:
+		report = evaluate_resume(resume, job_ir, create_model_client())
+	except ModelClientError as error:
 		raise HTTPException(status_code=503, detail=str(error)) from error
 	run = create_optimization_run(resume_record["id"], job_id, max_iterations=3)
 	version = create_resume_version(run["id"], resume_record.get("resume_json") or resume)
@@ -232,10 +232,10 @@ def interview_questions(job_id: int, resume_id: int | None = Query(default=None)
 	resume_payload = resume["resume"].get("resume_json") or resume
 	try:
 		job_ir = parse_job(job)
-		client = BedrockNovaClient()
+		client = create_model_client()
 		prep = generate_interview_questions(resume_payload, job_ir, client)
 		report = validate_interview(resume_payload, job_ir, prep, client)
-	except BedrockClientError as error:
+	except ModelClientError as error:
 		raise HTTPException(status_code=503, detail=str(error)) from error
 	verdicts = {verdict.question: verdict for verdict in report.verdicts}
 	questions, blocked = [], []
@@ -258,11 +258,11 @@ def interview_questions(job_id: int, resume_id: int | None = Query(default=None)
 @app.post("/jobs/{job_id}/optimize")
 def optimize_job(job_id: int, resume_id: int = Query(...), max_iterations: int = Query(default=3, ge=1, le=10), min_score_improvement: float = Query(default=2, ge=0), target_score: float = Query(default=85, ge=0, le=100)) -> dict[str, Any]:
 	try:
-		result = optimize_resume(resume_id, job_id, BedrockNovaClient(), max_iterations, min_score_improvement, target_score)
+		result = optimize_resume(resume_id, job_id, create_model_client(), max_iterations, min_score_improvement, target_score)
 		if result["run"]["status"] == "completed":
 			result["resumePdfUrl"] = f"/optimization-runs/{result['run']['id']}/resume.pdf"
 		return result
 	except ValueError as error:
 		raise HTTPException(status_code=404, detail=str(error)) from error
-	except BedrockClientError as error:
+	except ModelClientError as error:
 		raise HTTPException(status_code=503, detail=str(error)) from error

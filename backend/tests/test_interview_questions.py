@@ -90,7 +90,7 @@ class InterviewQuestionsTest(unittest.TestCase):
 
     def test_endpoint_returns_questions_with_answers(self):
         client = MockInterviewClient()
-        with patch("src.app.main.BedrockNovaClient", return_value=client):
+        with patch("src.app.main.create_model_client", return_value=client):
             response = interview_questions(self.job_id, resume_id=None)
 
         self.assertEqual(response["jobId"], str(self.job_id))
@@ -108,7 +108,7 @@ class InterviewQuestionsTest(unittest.TestCase):
 
     def test_endpoint_blocks_invalid_question(self):
         client = MockInterviewClient(report=ONE_BLOCKED_REPORT)
-        with patch("src.app.main.BedrockNovaClient", return_value=client):
+        with patch("src.app.main.create_model_client", return_value=client):
             response = interview_questions(self.job_id, resume_id=None)
 
         self.assertEqual(len(response["questions"]), 1)
@@ -121,7 +121,7 @@ class InterviewQuestionsTest(unittest.TestCase):
         person_id = create_person("Grace Hopper", email="grace@example.com")
         create_resume(person_id, "Grace Resume", raw_text=RESUME_JSON_2["raw_text"], resume_json=RESUME_JSON_2)
         client = MockInterviewClient()
-        with patch("src.app.main.BedrockNovaClient", return_value=client):
+        with patch("src.app.main.create_model_client", return_value=client):
             response = interview_questions(self.job_id, resume_id=None)
 
         generated_resume = client.calls[0][1]
@@ -131,7 +131,7 @@ class InterviewQuestionsTest(unittest.TestCase):
         person_id = create_person("Grace Hopper", email="grace@example.com")
         second_id = create_resume(person_id, "Grace Resume", raw_text=RESUME_JSON_2["raw_text"], resume_json=RESUME_JSON_2)
         client = MockInterviewClient()
-        with patch("src.app.main.BedrockNovaClient", return_value=client):
+        with patch("src.app.main.create_model_client", return_value=client):
             response = interview_questions(self.job_id, resume_id=second_id)
 
         generated_resume = client.calls[0][1]

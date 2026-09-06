@@ -12,7 +12,9 @@
       "Bash(curl -s -w \"\\\\nHTTP %{http_code}\\\\n\" \"http://localhost:8000/jobs/8/interview-questions\")",
       "Bash(curl -s -w \"\\\\nHTTP %{http_code}\\\\n\" \"http://localhost:8000/jobs/999/interview-questions\")",
       "Bash(npx eslint *)",
-      "Bash(curl -s -o /dev/null -w \"%{http_code}\\\\n\" \"http://localhost:3000/act?job=shopee-product-analyst\")"
+      "Bash(curl -s -o /dev/null -w \"%{http_code}\\\\n\" \"http://localhost:3000/act?job=shopee-product-analyst\")",
+      "Bash(head -c 300 backend/.env)",
+      "Bash(head -c 300 .env)"
     ]
   }
 }
