@@ -4,9 +4,9 @@ A Next.js frontend + FastAPI/SQLite backend built for the SimplifynextAI hackath
 resume, get parsed facts with source lines, match against stored jobs, and track applications —
 all backed by a real API, not fixture data.
 
-**Status:** frontend and backend are fully wired for every screen except `/act` (recruiter
-outreach / interview prep — owned separately, still on fixture data). See
-[Known limitations](#known-limitations) below.
+**Status:** frontend and backend are fully wired for every screen, including `/act`'s "Tailor my
+resume" tab (the other three `/act` tabs — learn/prep/reach — still use fixture data; see
+[Known limitations](#known-limitations) below).
 
 ## Quick start
 
@@ -60,7 +60,7 @@ or return `503` (the single-job endpoints). Everything else works with no AWS se
 | `/discover` | Find jobs       | `GET /jobs`, `GET /jobs/summary`, `GET /jobs/unlocks`                |
 | `/match`    | Match report    | `GET /jobs/:id/match`                                               |
 | `/pass`     | Work pass check | `GET /jobs/:id/compass` (fixed stub — see limitations)               |
-| `/act`      | Take action     | **Not wired** — fixture data (`lib/api.ts::fetchActionCenter`)      |
+| `/act`      | Take action     | `GET /jobs/:id/actions` (tailor tab only — see limitations)         |
 | `/watch`    | Overnight watch | `GET /watch`, `PUT /watch`                                          |
 | `/track`    | Track progress  | `GET /applications`                                                 |
 
@@ -94,6 +94,7 @@ GET  /jobs/:id/compass                    fixed COMPASS/work-pass stub (not real
 GET  /jobs/:id/requirements?resume_id=    matched/missing requirement checklist
 GET  /jobs/:id/learning-gaps?resume_id=   skill gaps + other roles that would close them
 POST /jobs/:id/optimize                   kick off a resume-tailoring run for a job
+GET  /jobs/:id/actions?resume_id=         tailor-tab data: met/total + real bullet diffs, driven by /optimize
 
 GET  /watch?resume_id=                    watch feed (real `enabled` flag; scan history is stubbed)
 PUT  /watch?resume_id=                    {"enabled": bool} -> 204
@@ -109,12 +110,29 @@ GET  /optimization-runs/:id/resume.pdf          download a generated PDF
 Every endpoint accepting `resume_id` falls back to the most recently uploaded resume when it's
 omitted, and returns `404` if an explicit `resume_id` doesn't exist.
 
+## Seed data
+
+`backend/database/resume_builder.db` is committed as demo seed data (see `.gitignore` — this one
+file is intentionally tracked so the hackathon demo has jobs and a sample resume out of the box).
+It ships with 6 distinct jobs, spanning strong, medium, and poor skill matches for the seeded
+sample resume (a finance/Excel-focused candidate, no Python/SQL): Market Risk Analyst Intern,
+Corporate Finance Intern, Equity Research Analyst Intern, Business Operations Analyst Intern, Data
+Analyst Intern, and Investment Banking Analyst (Summer). If you add more test data locally (extra
+resumes, optimization runs, applications), remember it will end up in this same file — run
+`git checkout -- backend/database/resume_builder.db` to reset it before committing.
+
 ## Known limitations
 
 Documented, deliberate trade-offs made to hit the hackathon deadline — not bugs:
 
-- **`/act` (recruiter outreach, interview prep, resume diffs)** — owned by another contributor;
-  still serves fixture data from `lib/data.ts`.
+- **`/act` — "Tell me what to learn" / "Prepare me for the interview" / "Help me contact
+  someone" tabs** — no backend equivalent exists yet; still serve fixture data from
+  `lib/data.ts`. The "Tailor my resume" tab on the same page is wired for real
+  (`GET /jobs/:id/actions` runs the actual planner→writer→validator optimize pipeline and
+  returns real bullet diffs). In practice, the writer agent is conservative: for a resume/job
+  pair where every bullet is already well-supported, it correctly declines to invent
+  differences rather than fabricate claims — so the tailor tab may legitimately show "nothing
+  to change" for some resume/job combinations. That is the agent behaving safely, not a bug.
 - **COMPASS / Employment Pass scoring** (`GET /jobs/:id/compass`, the `workPass` field on
   `GET /jobs/:id/match`) — fixed stub values. The `compass_reports` table exists in the schema
   so this can be swapped for real scoring without a migration.
@@ -142,15 +160,17 @@ Playwright) live in [`.claude/screenshots/`](.claude/screenshots/):
 | `06-pass.png`     | `/pass?job=` — work pass check (stub)                |
 | `07-watch.png`    | `/watch` — overnight watch toggle                    |
 | `08-track.png`    | `/track` — application tracker                       |
-| `09-act-tailor.png` | `/act?job=` — "Tailor my resume" tab (fixture data — see below)  |
+| `09-act-tailor.png` | `/act?job=` — "Tailor my resume" tab (real `/jobs/:id/actions` data)  |
 | `09-act-learn.png`  | `/act?job=` — "Tell me what to learn" tab (fixture data)          |
 | `09-act-prep.png`   | `/act?job=` — "Prepare me for the interview" tab (fixture data)   |
 | `09-act-reach.png`  | `/act?job=` — "Help me contact someone" tab (fixture data)        |
 
-All four `/act` tabs render the same hardcoded `ACTION_CENTER` fixture (`lib/data.ts`) regardless
-of the uploaded resume or selected job — notice the header still reads "Product Analyst · Shopee"
-and the draft is signed "Nadia", neither of which relates to whatever resume/job you actually picked.
-This is intentional per scope (no `/jobs/:id/actions` backend endpoint exists yet), not a bug — see
+The "Tailor my resume" tab now calls the real `/jobs/:id/actions` endpoint (met/total/diffs come
+from an actual planner→writer→validator optimize run against the uploaded resume and selected
+job). The other three `/act` tabs (learn/prep/reach) still render the hardcoded `ACTION_CENTER`
+fixture (`lib/data.ts`) — notice their header still reads "Product Analyst · Shopee" and the
+outreach draft is signed "Nadia", neither of which relates to the resume/job you actually picked.
+This is intentional per scope (no backend equivalent exists yet for those three tabs) — see
 Known limitations below.
 
 ## Layout
@@ -165,7 +185,7 @@ components/
   screens/            client components for the interactive bits of each screen
 lib/
   types.ts            the data contract the screens render
-  data.ts             fixture data (still used by /act; imported as a fallback elsewhere)
+  data.ts             fixture data for /act's learn/prep/reach tabs (and a merge fallback for its tailor tab fields)
   api.ts              the only file the UI talks to for data — swap NEXT_PUBLIC_API_BASE_URL to point at the backend
   routes.ts           tiny URL helpers
 

@@ -4,8 +4,11 @@
  * This is the only file the UI talks to for data. Every function below calls
  * the real FastAPI backend (see backend/src/app/main.py) via NEXT_PUBLIC_API_BASE_URL.
  *
- * Exceptions (still fixture-backed, out of scope — see README "Known limitations"):
- *   - fetchActionCenter (/act) — no backend endpoint exists for this yet.
+ * fetchActionCenter (/act) calls the real /jobs/:id/actions endpoint for the
+ * "Tailor my resume" tab (met/total/diffs/blocked, driven by the real
+ * planner→writer→validator optimize pipeline). The "learn"/"prep"/"reach"
+ * tabs and the outreach draft have no backend equivalent yet and stay on the
+ * ACTION_CENTER fixture — see README "Known limitations".
  *
  * Resume identity: the backend is single-tenant for this MVP (no auth). Most
  * endpoints accept an optional `resume_id` query param and default to the most
@@ -28,6 +31,7 @@
  *   PUT  /watch                       setWatchEnabled
  *   GET  /applications                fetchTracker
  *   GET  /session                     fetchSessionSummary
+ *   GET  /jobs/:id/actions            fetchActionCenter (tailor tab only)
  */
 
 import { ACTION_CENTER, STAGES } from "./data";
@@ -143,9 +147,18 @@ export async function fetchCompassReport(jobId?: string): Promise<CompassReport>
 }
 
 export async function fetchActionCenter(jobId?: string): Promise<ActionCenter> {
-  // Not wired — no backend endpoint exists for /jobs/:id/actions yet (out of scope, see README).
-  void jobId;
-  return ACTION_CENTER;
+  const id = jobId ?? (await defaultJobId());
+  const real = await request<Pick<ActionCenter, "jobId" | "jobTitle" | "company" | "met" | "total" | "diffs"> & { blocked: ActionCenter["blocked"] | null }>(
+    `/jobs/${encodeURIComponent(id)}/actions`
+  );
+  // "learn" / "prep" / "reach" tabs and the outreach draft have no backend
+  // equivalent yet (see README "Known limitations"), so those pieces of the
+  // fixture are kept and merged with the real tailor-tab data above.
+  return {
+    ...ACTION_CENTER,
+    ...real,
+    blocked: real.blocked ?? undefined,
+  };
 }
 
 /* ---------------------------------- watch ---------------------------------- */

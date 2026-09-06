@@ -47,41 +47,47 @@ export function ActionTabs({ center }: { center: ActionCenter }) {
 function TailorTab({ center }: { center: ActionCenter }) {
   const [approved, setApproved] = useState<boolean[]>(() => center.diffs.map((_, i) => i < 2));
   const count = approved.filter(Boolean).length;
+  const draftedCount = center.diffs.length + (center.blocked ? 1 : 0);
 
   return (
     <>
       <p className="sub">
-        The writer drafted {center.diffs.length + 1} bullets. {center.diffs.length === 3 ? "Three" : center.diffs.length}{" "}
-        are below for you to approve. The last one never reached you.
+        {draftedCount === 0
+          ? "The writer reviewed this resume against the job but found nothing it could truthfully change — every bullet was already well-supported and on point."
+          : center.blocked
+            ? `The writer drafted ${draftedCount} bullets. ${center.diffs.length} are below for you to approve. The last one never reached you.`
+            : `The writer drafted ${draftedCount} bullet${draftedCount === 1 ? "" : "s"}, all below for you to approve.`}
       </p>
 
-      <div className="blockcard">
-        <div className="blockhead">
-          <i className="pulse stop" />
-          Validator blocked one rewrite
+      {center.blocked && (
+        <div className="blockcard">
+          <div className="blockhead">
+            <i className="pulse stop" />
+            Validator blocked one rewrite
+          </div>
+          <div style={{ padding: "17px 22px" }}>
+            <div style={{ fontSize: 11.5, color: "var(--block)", marginBottom: 7 }}>The writer proposed</div>
+            <div className="strike" style={{ fontSize: 14, lineHeight: 1.55 }}>
+              {center.blocked.proposed}
+            </div>
+            <div
+              style={{
+                marginTop: 15,
+                paddingTop: 14,
+                borderTop: "1px solid rgba(158,43,43,.22)",
+                fontSize: 13.5,
+                lineHeight: 1.65,
+              }}
+            >
+              {center.blocked.reason}
+            </div>
+            <div style={{ marginTop: 15, paddingTop: 14, borderTop: "1px solid rgba(158,43,43,.22)" }}>
+              <div style={{ fontSize: 11.5, color: "var(--ink3)", marginBottom: 7 }}>Kept instead</div>
+              <div style={{ fontSize: 14, lineHeight: 1.55 }}>{center.blocked.kept}</div>
+            </div>
+          </div>
         </div>
-        <div style={{ padding: "17px 22px" }}>
-          <div style={{ fontSize: 11.5, color: "var(--block)", marginBottom: 7 }}>The writer proposed</div>
-          <div className="strike" style={{ fontSize: 14, lineHeight: 1.55 }}>
-            {center.blocked.proposed}
-          </div>
-          <div
-            style={{
-              marginTop: 15,
-              paddingTop: 14,
-              borderTop: "1px solid rgba(158,43,43,.22)",
-              fontSize: 13.5,
-              lineHeight: 1.65,
-            }}
-          >
-            {center.blocked.reason}
-          </div>
-          <div style={{ marginTop: 15, paddingTop: 14, borderTop: "1px solid rgba(158,43,43,.22)" }}>
-            <div style={{ fontSize: 11.5, color: "var(--ink3)", marginBottom: 7 }}>Kept instead</div>
-            <div style={{ fontSize: 14, lineHeight: 1.55 }}>{center.blocked.kept}</div>
-          </div>
-        </div>
-      </div>
+      )}
 
       {center.diffs.map((d, i) => (
         <Card key={i} style={{ marginBottom: 14 }}>

@@ -21,6 +21,7 @@ from src.agents.resume_agents.contracts import ATSReport
 from src.agents.resume_agents.evaluator import evaluate_resume
 from src.agents.resume_agents.job_parser import parse_job
 from src.agents.resume_ingestion import ingest_resume
+from src.services.action_center import build_blocked_claim, build_resume_diffs
 from src.services.job_ranking import rank_jobs_for_resume, resume_for_evaluator
 from src.services.optimization_engine import optimize_resume
 from src.services.presenters import WORK_PASS_STUB, compass_stub_report, facts_to_groups, job_to_frontend, match_requirements_to_frontend, verdict_for_score
@@ -451,3 +452,49 @@ def optimize_job(job_id: int, resume_id: int = Query(...), max_iterations: int =
 		raise HTTPException(status_code=404, detail=str(error)) from error
 	except BedrockClientError as error:
 		raise HTTPException(status_code=503, detail=str(error)) from error
+
+
+@app.get("/jobs/{job_id}/actions")
+def job_actions(job_id: int, resume_id: int | None = Query(default=None)) -> dict[str, Any]:
+	job = get_job(job_id)
+	if job is None:
+		raise HTTPException(status_code=404, detail="Job not found")
+	resume_summary = get_latest_resume() if resume_id is None else get_resume(resume_id)
+	if resume_summary is None:
+		raise HTTPException(status_code=404, detail="Resume not found")
+	resolved_resume_id = resume_summary["id"]
+	resume_record = get_full_resume(resolved_resume_id)
+	if resume_record is None:
+		raise HTTPException(status_code=404, detail="Resume not found")
+
+	try:
+		result = optimize_resume(resolved_resume_id, job_id, BedrockNovaClient(), max_iterations=2, min_score_improvement=1, target_score=90)
+	except ValueError as error:
+		raise HTTPException(status_code=404, detail=str(error)) from error
+	except BedrockClientError as error:
+		raise HTTPException(status_code=503, detail=str(error)) from error
+
+	evaluation = result.get("evaluation") or {}
+	matched = evaluation.get("matched_skills") or []
+	missing = evaluation.get("missing_skills") or []
+
+	authoritative = resume_record.get("resume", {}).get("resume_json") or resume_record
+	run_status = (result.get("run") or {}).get("status")
+	if run_status == "completed":
+		final_resume = result.get("resume") or authoritative
+		run_id = (result.get("run") or {}).get("id")
+		diffs = build_resume_diffs(authoritative, final_resume, run_id)
+		blocked = None
+	else:
+		diffs = []
+		blocked = build_blocked_claim(result.get("validation"))
+
+	return {
+		"jobId": str(job_id),
+		"jobTitle": job["job_title"],
+		"company": job.get("company_name") or "",
+		"met": len(matched),
+		"total": len(matched) + len(missing),
+		"diffs": diffs,
+		"blocked": blocked,
+	}
