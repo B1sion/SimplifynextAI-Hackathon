@@ -70,6 +70,11 @@ class ApiTest(unittest.TestCase):
         self.assertEqual(summary["cannotApply"], 1)
         self.assertEqual(summary["mightNotQualify"], 0)
 
+    def test_jobs_summary_with_unknown_resume_id_returns_404(self):
+        with self.assertRaises(HTTPException) as context:
+            jobs_summary(resume_id=999)
+        self.assertEqual(context.exception.status_code, 404)
+
     def test_resume_facts_returns_fact_groups(self):
         from src.Tools.skill_tools import add_skill_to_resume, create_skill
 

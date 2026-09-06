@@ -87,7 +87,12 @@ def list_jobs(resume_id: int | None = None, mode: str = "browse") -> list[dict[s
 
 @app.get("/jobs/summary")
 def jobs_summary(resume_id: int | None = Query(default=None)) -> dict[str, int]:
-	resume_record = get_resume(resume_id) if resume_id is not None else get_latest_resume()
+	if resume_id is not None:
+		resume_record = get_resume(resume_id)
+		if resume_record is None:
+			raise HTTPException(status_code=404, detail="Resume not found")
+	else:
+		resume_record = get_latest_resume()
 	resume = get_full_resume(resume_record["id"]) if resume_record is not None else None
 	ranked = rank_jobs_for_resume(resume, BedrockNovaClient())
 	counts = {"v": 0, "c": 0, "b": 0}
