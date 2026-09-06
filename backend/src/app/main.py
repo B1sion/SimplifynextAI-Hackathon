@@ -5,9 +5,9 @@ from fastapi import FastAPI, File, HTTPException, Query, UploadFile
 
 from database.database import initialize_database
 from src.Tools.evaluation_tools import save_evaluation
-from src.Tools.job_tools import get_job
-from src.Tools.optimization_tools import create_optimization_run, create_resume_version
-from src.Tools.resume_tools import get_full_resume, get_latest_resume
+from src.Tools.job_tools import get_all_jobs, get_job
+from src.Tools.optimization_tools import create_optimization_run, create_resume_version, get_optimization_context, get_resume_versions
+from src.Tools.resume_tools import get_full_resume, get_latest_resume, get_resume
 from src.agents.resume_agents.bedrock_client import BedrockClientError, BedrockNovaClient
 from src.agents.resume_agents.evaluator import evaluate_resume
 from src.agents.resume_agents.job_parser import parse_job
@@ -22,6 +22,19 @@ MAX_UPLOAD_BYTES = 10 * 1024 * 1024
 app = FastAPI(title="Simplify Resume API")
 
 
+def _resume_payload(resume_id: int) -> dict:
+	resume = get_full_resume(resume_id)
+	if resume is None:
+		raise HTTPException(status_code=404, detail="Resume not found")
+	return resume["resume"].get("resume_json") or resume
+
+
+def _requirement_checklist(report) -> list[dict]:
+	matched = [{"text": item, "status": "matched"} for item in report.matched_skills]
+	missing = [{"text": item, "status": "missing"} for item in report.missing_skills]
+	return matched + missing
+
+
 @app.on_event("startup")
 def startup() -> None:
 	initialize_database()
@@ -31,6 +44,87 @@ def startup() -> None:
 @app.get("/health")
 def health() -> dict[str, str]:
 	return {"status": "ok"}
+
+
+@app.get("/jobs")
+def list_jobs(resume_id: int | None = Query(default=None), mode: str = Query(default="browse")) -> dict:
+	jobs = get_all_jobs()
+	if resume_id is None:
+		return {"jobs": jobs, "ranked": False, "mode": mode}
+	resume = _resume_payload(resume_id)
+	ranked = []
+	try:
+		for job in jobs:
+			report = evaluate_resume(resume, parse_job(job), BedrockNovaClient())
+			ranked.append({**job, "score": report.ats_score, "evaluation": report.model_dump()})
+	except BedrockClientError as error:
+		raise HTTPException(status_code=503, detail=str(error)) from error
+	ranked.sort(key=lambda item: item["score"], reverse=True)
+	return {"jobs": ranked, "ranked": True, "mode": mode}
+
+
+@app.get("/resumes/{resume_id}/facts")
+def resume_facts(resume_id: int) -> dict:
+	resume = get_full_resume(resume_id)
+	if resume is None:
+		raise HTTPException(status_code=404, detail="Resume not found")
+	return resume
+
+
+@app.get("/jobs/{job_id}/requirements")
+def job_requirements(job_id: int, resume_id: int = Query(...)) -> dict:
+	job = get_job(job_id)
+	if job is None:
+		raise HTTPException(status_code=404, detail="Job not found")
+	try:
+		report = evaluate_resume(_resume_payload(resume_id), parse_job(job), BedrockNovaClient())
+	except BedrockClientError as error:
+		raise HTTPException(status_code=503, detail=str(error)) from error
+	return {"jobId": str(job_id), "requirements": _requirement_checklist(report), "evaluation": report.model_dump()}
+
+
+@app.get("/jobs/{job_id}/learning-gaps")
+def job_learning_gaps(job_id: int, resume_id: int = Query(...)) -> dict:
+	job = get_job(job_id)
+	if job is None:
+		raise HTTPException(status_code=404, detail="Job not found")
+	try:
+		report = evaluate_resume(_resume_payload(resume_id), parse_job(job), BedrockNovaClient())
+	except BedrockClientError as error:
+		raise HTTPException(status_code=503, detail=str(error)) from error
+	gaps = list(dict.fromkeys(report.missing_skills + report.keyword_gaps + report.experience_gaps))
+	opportunities = [
+		{"jobId": str(other["id"]), "title": other["job_title"], "company": other.get("company_name") or ""}
+		for other in get_all_jobs()
+		if other["id"] != job_id and any(gap.casefold() in (other.get("job_description") or "").casefold() for gap in gaps)
+	]
+	return {
+		"jobId": str(job_id),
+		"gaps": [{"skill": gap, "suggestion": f"Build or document truthful evidence for {gap}."} for gap in gaps],
+		"opportunities": opportunities,
+	}
+
+
+@app.get("/optimization-runs/{run_id}")
+def optimization_run(run_id: int) -> dict:
+	context = get_optimization_context(run_id)
+	if context is None:
+		raise HTTPException(status_code=404, detail="Optimization run not found")
+	return context
+
+
+@app.get("/optimization-runs/{run_id}/versions")
+def optimization_versions(run_id: int) -> dict:
+	context = get_optimization_context(run_id)
+	if context is None:
+		raise HTTPException(status_code=404, detail="Optimization run not found")
+	versions = get_resume_versions(run_id)
+	comparisons = [
+		{"previous": versions[index - 1], "current": version}
+		for index, version in enumerate(versions)
+		if index > 0
+	]
+	return {"run": context["run"], "versions": versions, "comparisons": comparisons}
 
 
 @app.post("/resumes", status_code=201)
