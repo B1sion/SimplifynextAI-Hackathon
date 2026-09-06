@@ -106,6 +106,49 @@ def jobs_summary(resume_id: int | None = Query(default=None)) -> dict[str, int]:
 	}
 
 
+_LEARNING_TIME_WEEKS: dict[str, int] = {
+	"python": 4, "sql": 3, "docker": 4, "kubernetes": 6, "aws": 6, "react": 5,
+	"excel": 2, "power query": 3, "vba": 3, "tableau": 3, "looker": 2, "dbt": 6,
+	"amplitude": 3, "figma": 2, "git": 2, "linux": 4,
+}
+_DEFAULT_LEARNING_WEEKS = 4
+
+
+@app.get("/jobs/unlocks")
+def jobs_unlocks(resume_id: int | None = Query(default=None), limit: int = Query(default=5, ge=1, le=20)) -> list[dict[str, Any]]:
+	if resume_id is not None:
+		resume_record = get_resume(resume_id)
+		if resume_record is None:
+			raise HTTPException(status_code=404, detail="Resume not found")
+	else:
+		resume_record = get_latest_resume()
+	resume = get_full_resume(resume_record["id"]) if resume_record is not None else None
+	ranked = rank_jobs_for_resume(resume, BedrockNovaClient())
+	missing: set[str] = set()
+	for entry in ranked:
+		if entry["evaluation"] is not None:
+			missing.update(entry["evaluation"].missing_skills)
+
+	all_jobs = get_all_jobs()
+	counts: list[tuple[str, int]] = []
+	for skill in missing:
+		count = sum(1 for job in all_jobs if skill.casefold() in (job.get("job_description") or "").casefold())
+		counts.append((skill, count))
+	counts.sort(key=lambda item: item[1], reverse=True)
+	top = counts[:limit]
+	max_count = max((count for _, count in top), default=0)
+
+	return [
+		{
+			"name": skill,
+			"jobs": count,
+			"weeks": f"{_LEARNING_TIME_WEEKS.get(skill.casefold(), _DEFAULT_LEARNING_WEEKS)} weeks",
+			"pct": round((count / max_count) * 100) if max_count else 0,
+		}
+		for skill, count in top
+	]
+
+
 @app.get("/resumes/{resume_id}/facts")
 def resume_facts(resume_id: int) -> list[dict[str, Any]]:
 	resume = get_full_resume(resume_id)

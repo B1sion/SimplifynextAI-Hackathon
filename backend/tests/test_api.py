@@ -12,7 +12,7 @@ from src.Tools.job_tools import add_job
 from src.Tools.optimization_tools import create_optimization_run, create_resume_version
 from src.Tools.person_tools import create_person
 from src.Tools.resume_tools import create_resume
-from src.app.main import jobs_summary, list_jobs, optimization_run, optimization_versions, resume_facts, match_job
+from src.app.main import jobs_summary, jobs_unlocks, list_jobs, optimization_run, optimization_versions, resume_facts, match_job
 
 
 class ApiTest(unittest.TestCase):
@@ -73,6 +73,25 @@ class ApiTest(unittest.TestCase):
     def test_jobs_summary_with_unknown_resume_id_returns_404(self):
         with self.assertRaises(HTTPException) as context:
             jobs_summary(resume_id=999)
+        self.assertEqual(context.exception.status_code, 404)
+
+    def test_jobs_unlocks_counts_real_job_mentions(self):
+        add_job("SQL heavy role", "Must know SQL and Docker", "Engineering", company_name="Other Co")
+        add_job("SQL only role", "Must know SQL", "Engineering", company_name="Third Co")
+        with patch(
+            "src.services.job_ranking.evaluate_resume",
+            return_value=ATSReport(ats_score=40.0, missing_skills=["SQL", "Docker"]),
+        ):
+            unlocks = jobs_unlocks(resume_id=self.resume_id, limit=5)
+        by_name = {u["name"]: u for u in unlocks}
+        self.assertEqual(by_name["SQL"]["jobs"], 2)
+        self.assertEqual(by_name["Docker"]["jobs"], 1)
+        self.assertEqual(by_name["SQL"]["pct"], 100)
+        self.assertIn("week", by_name["SQL"]["weeks"])
+
+    def test_jobs_unlocks_with_unknown_resume_id_returns_404(self):
+        with self.assertRaises(HTTPException) as context:
+            jobs_unlocks(resume_id=999)
         self.assertEqual(context.exception.status_code, 404)
 
     def test_resume_facts_returns_fact_groups(self):
