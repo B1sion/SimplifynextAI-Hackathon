@@ -142,7 +142,16 @@ Playwright) live in [`.claude/screenshots/`](.claude/screenshots/):
 | `06-pass.png`     | `/pass?job=` — work pass check (stub)                |
 | `07-watch.png`    | `/watch` — overnight watch toggle                    |
 | `08-track.png`    | `/track` — application tracker                       |
-| `09-act.png`      | `/act?job=` — action center (fixture data)          |
+| `09-act-tailor.png` | `/act?job=` — "Tailor my resume" tab (fixture data — see below)  |
+| `09-act-learn.png`  | `/act?job=` — "Tell me what to learn" tab (fixture data)          |
+| `09-act-prep.png`   | `/act?job=` — "Prepare me for the interview" tab (fixture data)   |
+| `09-act-reach.png`  | `/act?job=` — "Help me contact someone" tab (fixture data)        |
+
+All four `/act` tabs render the same hardcoded `ACTION_CENTER` fixture (`lib/data.ts`) regardless
+of the uploaded resume or selected job — notice the header still reads "Product Analyst · Shopee"
+and the draft is signed "Nadia", neither of which relates to whatever resume/job you actually picked.
+This is intentional per scope (no `/jobs/:id/actions` backend endpoint exists yet), not a bug — see
+Known limitations below.
 
 ## Layout
 
