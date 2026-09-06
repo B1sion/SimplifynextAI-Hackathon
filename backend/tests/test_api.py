@@ -12,7 +12,7 @@ from src.Tools.job_tools import add_job
 from src.Tools.optimization_tools import create_optimization_run, create_resume_version
 from src.Tools.person_tools import create_person
 from src.Tools.resume_tools import create_resume
-from src.app.main import jobs_summary, jobs_unlocks, list_jobs, optimization_run, optimization_versions, resume_facts, match_job
+from src.app.main import jobs_compass, jobs_summary, jobs_unlocks, list_jobs, optimization_run, optimization_versions, resume_facts, match_job
 
 
 class ApiTest(unittest.TestCase):
@@ -149,6 +149,15 @@ class ApiTest(unittest.TestCase):
         self.assertEqual(set(response["workPass"].keys()), {"points", "needed", "summary"})
         met_requirement = next(r for r in response["requirements"] if r["met"])
         self.assertEqual(met_requirement["evidence"], "5 years of Python")
+
+    def test_jobs_compass_returns_stub(self):
+        report = jobs_compass(self.job_id)
+        self.assertEqual(report["jobId"], str(self.job_id))
+        self.assertEqual(len(report["criteria"]), 6)
+
+    def test_jobs_compass_missing_job_returns_404(self):
+        with self.assertRaises(Exception):
+            jobs_compass(999)
 
 
 if __name__ == "__main__":
