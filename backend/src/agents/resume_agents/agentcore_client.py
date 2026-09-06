@@ -1,5 +1,6 @@
 import json
 import os
+import base64
 from collections.abc import Callable
 from typing import Any
 from uuid import uuid4
@@ -50,6 +51,18 @@ class AgentCoreClient:
 
     def parse_resume(self, text: str) -> dict[str, Any]:
         return self._call("parse_resume", {"text": text})
+
+    def parse_resume_pdf(self, pdf_bytes: bytes, filename: str = "resume.pdf") -> dict[str, Any]:
+        return self._call(
+            "parse_resume",
+            {
+                "document": {
+                    "media_type": "application/pdf",
+                    "filename": filename,
+                    "data_base64": base64.b64encode(pdf_bytes).decode("ascii"),
+                }
+            },
+        )
 
     def evaluate_resume(self, resume: dict[str, Any], job: dict[str, Any]) -> dict[str, Any]:
         return self._call("evaluate_resume", {"resume": resume, "job": job})

@@ -6,9 +6,8 @@ from src.Tools.education_project_tools import add_education, add_project
 from src.Tools.person_tools import create_person
 from src.Tools.resume_tools import create_resume, get_full_resume
 from src.Tools.skill_tools import add_skill_to_resume, create_skill
-from src.Tools.work_experience_tools import add_work_experience
+from src.Tools.work_experience_tools import add_experience_bullet, add_work_experience
 from src.agents.resume_parser import extract_pdf_text, parse_resume, parse_resume_with_agent
-
 
 def ingest_resume(file_path: Path, original_file_path: str | None = None) -> dict[str, Any] | None:
     text = extract_pdf_text(file_path)
@@ -29,7 +28,11 @@ def ingest_resume(file_path: Path, original_file_path: str | None = None) -> dic
     )
 
     for experience in parsed["work_experience"]:
-        add_work_experience(resume_id, **experience)
+        bullets = experience.get("bullets", [])
+        experience_data = {key: value for key, value in experience.items() if key != "bullets"}
+        experience_id = add_work_experience(resume_id, **experience_data)
+        for bullet_order, bullet in enumerate(bullets):
+            add_experience_bullet(experience_id, bullet, bullet_order=bullet_order)
     for education in parsed["education"]:
         add_education(resume_id, **education)
     for project in parsed["projects"]:

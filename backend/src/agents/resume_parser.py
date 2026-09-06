@@ -16,20 +16,28 @@ SECTION_ALIASES = {
     "other experience": "experience",
     "other experiences": "experience",
 }
-DATE_RANGE_RE = re.compile(r"\s+(?P<start>[A-Za-z]+\s+\d{4})\s*[-–]\s*(?P<end>[A-Za-z]+\s+\d{4})$")
+DATE_RANGE_RE = re.compile(r"\s+(?P<start>[A-Za-z]+\s+\d{4})\s*[-–—?]\s*(?P<end>[A-Za-z]+\s+\d{4})$")
+BULLET_RE = re.compile(r"^(?:[●•▪◦*-])\s*")
 RESUME_READER_PROMPT_PATH = Path(__file__).parent / "resume_agents" / "Resume_reader.md"
 
 
 def extract_pdf_text(file_path: Path) -> str:
     reader = PdfReader(str(file_path))
-    return "\n".join(page.extract_text() or "" for page in reader.pages).strip()
+    pages: list[str] = []
+    for page in reader.pages:
+        try:
+            page_text = page.extract_text(extraction_mode="layout") or ""
+        except (TypeError, ValueError):
+            page_text = page.extract_text() or ""
+        pages.append(page_text)
+    return "\n".join(pages).strip()
 
 
 def _section_lines(text: str) -> dict[str, list[str]]:
     sections: dict[str, list[str]] = {name: [] for name in SECTION_NAMES}
     current: str | None = None
     for raw_line in text.splitlines():
-        line = " ".join(raw_line.split()).strip()
+        line = " ".join(raw_line.replace("\u200b", "").replace("\ufeff", "").split()).strip()
         if not line:
             continue
         normalized = line.lower().rstrip(":")
@@ -50,12 +58,12 @@ def _first_name(text: str) -> str:
     return "Unknown"
 
 
-def _parse_experience(lines: list[str]) -> list[dict[str, str | None]]:
-    entries: list[dict[str, str | None]] = []
+def _parse_experience(lines: list[str]) -> list[dict[str, Any]]:
+    entries: list[dict[str, Any]] = []
     for index, line in enumerate(lines):
         if " | " in line:
             job_title, company_name = [part.strip() for part in line.split(" | ", 1)]
-            entries.append({"company_name": company_name, "job_title": job_title, "description": None, "experience_order": index})
+            entries.append({"company_name": company_name, "job_title": job_title, "description": None, "bullets": [], "experience_order": index})
         else:
             date_match = DATE_RANGE_RE.search(line)
             if date_match:
@@ -66,11 +74,18 @@ def _parse_experience(lines: list[str]) -> list[dict[str, str | None]]:
                     "start_date": date_match.group("start"),
                     "end_date": date_match.group("end"),
                     "description": None,
+                    "bullets": [],
                     "experience_order": index,
                 })
             elif entries and entries[-1]["job_title"] is None:
                 entries[-1]["job_title"] = line
             elif entries:
+                bullet = BULLET_RE.sub("", line).strip()
+                if bullet != line and isinstance(entries[-1].get("bullets"), list):
+                    entries[-1]["bullets"].append(bullet)
+                    line = bullet
+                elif isinstance(entries[-1].get("bullets"), list) and entries[-1]["bullets"]:
+                    entries[-1]["bullets"][-1] = f"{entries[-1]['bullets'][-1]} {line}".strip()
                 description = entries[-1]["description"]
                 entries[-1]["description"] = f"{description}\n{line}" if description else line
     return entries
@@ -131,8 +146,16 @@ def parse_resume(text: str) -> dict[str, Any]:
 
 
 def parse_resume_with_agent(text: str) -> dict[str, Any]:
-    """Ask AgentCore to convert text into resume JSON."""
+    """Ask AgentCore to convert extracted text into resume JSON."""
     from src.agents.resume_agents.agentcore_client import AgentCoreClient
 
     parsed = AgentCoreClient().parse_resume(text)
     return {**parsed, "raw_text": text}
+
+
+def parse_resume_pdf_with_agent(pdf_bytes: bytes, filename: str = "resume.pdf", raw_text: str | None = None) -> dict[str, Any]:
+    """Ask AgentCore to read the original PDF while retaining searchable text."""
+    from src.agents.resume_agents.agentcore_client import AgentCoreClient
+
+    parsed = AgentCoreClient().parse_resume_pdf(pdf_bytes, filename=filename)
+    return {**parsed, "raw_text": raw_text or ""}

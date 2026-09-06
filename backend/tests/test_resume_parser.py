@@ -1,9 +1,22 @@
 import unittest
+from pathlib import Path
+from unittest.mock import Mock, patch
 
-from src.agents.resume_parser import parse_resume
+from src.agents.resume_parser import extract_pdf_text, parse_resume
 
 
 class ResumeParserTest(unittest.TestCase):
+    @patch("src.agents.resume_parser.PdfReader")
+    def test_pdf_extraction_preserves_layout(self, reader_class):
+        page = Mock()
+        page.extract_text.return_value = "WORK EXPERIENCE\nING Bank July 2026 - December 2026\nMarket Risk Intern"
+        reader_class.return_value.pages = [page]
+
+        text = extract_pdf_text(Path("resume.pdf"))
+
+        page.extract_text.assert_called_once_with(extraction_mode="layout")
+        self.assertEqual(len(parse_resume(text)["work_experience"]), 1)
+
     def test_parses_contact_sections_and_skills(self):
         parsed = parse_resume(
             """Ada Lovelace
@@ -66,6 +79,30 @@ Teaching Intern
         self.assertEqual(parsed["work_experience"][0]["job_title"], "Market Risk Management Intern")
         self.assertEqual(parsed["work_experience"][0]["start_date"], "July 2026")
         self.assertEqual(parsed["work_experience"][1]["company_name"], "Independent")
+
+    def test_parses_replacement_character_between_date_ranges(self):
+        parsed = parse_resume(
+            """Work Experience
+ING Bank July 2026 ? December 2026
+Market Risk Management Intern
+"""
+        )
+
+        self.assertEqual(len(parsed["work_experience"]), 1)
+        self.assertEqual(parsed["work_experience"][0]["company_name"], "ING Bank")
+        self.assertEqual(parsed["work_experience"][0]["end_date"], "December 2026")
+
+        def test_preserves_wrapped_experience_bullets(self):
+                parsed = parse_resume(
+                        """Work Experience
+ING Bank July 2026 - December 2026
+Market Risk Intern
+● Monitored market risk metrics across trading books and
+    banking books.
+"""
+                )
+
+                self.assertEqual(parsed["work_experience"][0]["bullets"], ["Monitored market risk metrics across trading books and banking books."])
 
 
 if __name__ == "__main__":

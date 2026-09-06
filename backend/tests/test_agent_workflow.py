@@ -1,6 +1,8 @@
 import os
+import base64
 import unittest
 
+from src.agents.resume_agents.agentcore_client import AgentCoreClient
 from src.agents.resume_agents.bedrock_client import BedrockClientError, BedrockNovaClient
 from src.agents.resume_agents.contracts import ATSReport, JobIR, ResumeIR, RewritePlan
 from src.agents.resume_agents.evaluator import evaluate_resume
@@ -59,6 +61,22 @@ class FakeBody:
 
 
 class AgentWorkflowTest(unittest.TestCase):
+    def test_agentcore_resume_reader_receives_original_pdf_document(self):
+        calls = []
+
+        def invoke(operation, payload):
+            calls.append((operation, payload))
+            return {"name": "Ada Lovelace"}
+
+        parsed = AgentCoreClient(invoke=invoke).parse_resume_pdf(b"%PDF-test", "ada.pdf")
+
+        self.assertEqual(parsed["name"], "Ada Lovelace")
+        self.assertEqual(calls[0][0], "parse_resume")
+        document = calls[0][1]["document"]
+        self.assertEqual(document["media_type"], "application/pdf")
+        self.assertEqual(document["filename"], "ada.pdf")
+        self.assertEqual(base64.b64decode(document["data_base64"]), b"%PDF-test")
+
     def test_structured_evaluator_planner_writer_outputs(self):
         client = MockWorkflowClient()
         report = evaluate_resume(RESUME, JOB, client)
