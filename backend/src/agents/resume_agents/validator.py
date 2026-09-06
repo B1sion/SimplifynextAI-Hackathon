@@ -1,8 +1,12 @@
 import re
 from typing import Any
+from typing import Protocol
 
-from .agentcore_client import AgentCoreClient
 from .contracts import ResumeIR, ValidationIssue, ValidationReport
+
+
+class ValidationModelClient(Protocol):
+    def validate_resume(self, authoritative_resume: dict[str, Any], candidate_resume: dict[str, Any]) -> dict[str, Any]: ...
 
 
 def _validate(model, value):
@@ -13,11 +17,11 @@ def _flat(resume: ResumeIR) -> str:
     return " ".join(str(value) for value in resume.model_dump().values()).lower()
 
 
-def validate_resume(authoritative_resume: ResumeIR | dict[str, Any], candidate_resume: ResumeIR | dict[str, Any], agentcore: AgentCoreClient | None = None) -> ValidationReport:
+def validate_resume(authoritative_resume: ResumeIR | dict[str, Any], candidate_resume: ResumeIR | dict[str, Any], model_client: ValidationModelClient | None = None) -> ValidationReport:
     authoritative = _validate(ResumeIR, authoritative_resume)
     candidate = _validate(ResumeIR, candidate_resume)
-    if agentcore is not None:
-        return _validate(ValidationReport, agentcore.validate_resume(authoritative.model_dump(), candidate.model_dump()))
+    if model_client is not None:
+        return _validate(ValidationReport, model_client.validate_resume(authoritative.model_dump(), candidate.model_dump()))
     original_text = _flat(authoritative)
     issues: list[ValidationIssue] = []
     for skill in candidate.skills:
