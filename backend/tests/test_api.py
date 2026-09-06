@@ -1,9 +1,13 @@
 import tempfile
 import unittest
+from unittest.mock import patch
 from pathlib import Path
+
+from fastapi import HTTPException
 
 from database import database
 from database.database import initialize_database
+from src.agents.resume_agents.contracts import ATSReport
 from src.Tools.job_tools import add_job
 from src.Tools.optimization_tools import create_optimization_run, create_resume_version
 from src.Tools.person_tools import create_person
@@ -37,11 +41,22 @@ class ApiTest(unittest.TestCase):
 
     def test_list_jobs_close_mode_sorts_by_score_descending(self):
         second_job_id = add_job("Second Role", "Needs Python", "Engineering", company_name="Other Co")
-        jobs = list_jobs(mode="close")
+        def fake_evaluate(resume, job_ir, model_client):
+            scores = {"Engineer": 90.0, "Second Role": 40.0}
+            return ATSReport(ats_score=scores[job_ir.title])
+
+        with patch("src.services.job_ranking.evaluate_resume", side_effect=fake_evaluate):
+            jobs = list_jobs(mode="close")
+
         ids = [job["id"] for job in jobs]
         self.assertEqual(set(ids), {str(self.job_id), str(second_job_id)})
         scores = [job["score"] for job in jobs]
         self.assertEqual(scores, sorted(scores, reverse=True))
+
+    def test_list_jobs_with_unknown_resume_id_returns_404(self):
+        with self.assertRaises(HTTPException) as context:
+            list_jobs(resume_id=999)
+        self.assertEqual(context.exception.status_code, 404)
 
     def test_optimization_context_and_versions_endpoints(self):
         run = create_optimization_run(self.resume_id, self.job_id)
