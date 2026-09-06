@@ -174,8 +174,11 @@ function LearnTab({ center }: { center: ActionCenter }) {
 /* -------------------------------- prep --------------------------------- */
 
 function PrepTab({ center }: { center: ActionCenter }) {
+  // Backend interview endpoint keys on the SQLite int job id. Fixture slugs
+  // ("shopee-product-analyst") are not resolvable, so they stay on fixtures.
+  const realMode = Boolean(API_BASE_URL) && /^\d+$/.test(center.jobId);
   const [prep, setPrep] = useState<InterviewPrep | null>(null);
-  const [status, setStatus] = useState<"idle" | "loading" | "error">(API_BASE_URL ? "loading" : "idle");
+  const [status, setStatus] = useState<"idle" | "loading" | "error">(realMode ? "loading" : "idle");
   const [error, setError] = useState("");
 
   const load = useCallback(async () => {
@@ -189,10 +192,10 @@ function PrepTab({ center }: { center: ActionCenter }) {
   }, [center.jobId]);
 
   useEffect(() => {
-    if (!API_BASE_URL) return;
+    if (!realMode) return;
     const timer = setTimeout(() => void load(), 0);
     return () => clearTimeout(timer);
-  }, [load]);
+  }, [load, realMode]);
 
   const questions: InterviewQuestion[] = prep ? prep.questions : center.interview;
 
