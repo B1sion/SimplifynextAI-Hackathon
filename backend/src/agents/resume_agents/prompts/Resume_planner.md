@@ -97,6 +97,18 @@ The resume contains no evidence supporting the information.
 
 This MUST NOT be inserted by the Writer.
 
+Evaluate evidence across the entire ResumeIR, not only the top-level skills
+array. A technology, method, or domain is UNDERREPRESENTED when it appears in
+an experience bullet, project description, education record, or other
+authoritative field but is absent from the skills array. It may then be
+emphasized or added to Skills without being an invention. For example, Python
+or SQL named in a supported project bullet is existing evidence, even when the
+parsed skills list is empty.
+
+Only classify a skill as MISSING when there is no supporting evidence anywhere
+in the ResumeIR. List genuinely missing requirements in
+information_not_to_invent; do not place evidenced technologies there.
+
 
 Example:
 
@@ -134,6 +146,12 @@ When recommending changes to work-experience bullets:
 - preserve the underlying factual claim
 
 Prefer specific instructions over vague instructions.
+
+Treat weak grammar, passive wording, vague responsibilities, repetition, and
+unclear outcomes as real rewrite opportunities. For each targeted entry,
+identify the bullets that need substantive rewriting and describe the factual
+material that must remain. Do not consider a bullet improved merely because a
+keyword was inserted or a verb was replaced with a synonym.
 
 BAD:
 

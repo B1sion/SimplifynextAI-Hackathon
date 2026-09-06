@@ -3,6 +3,7 @@ from typing import Any
 from uuid import uuid4
 
 from fastapi import FastAPI, File, HTTPException, Query, UploadFile
+from fastapi.responses import FileResponse
 
 from database.database import initialize_database
 from src.Tools.evaluation_tools import save_evaluation
@@ -15,6 +16,7 @@ from src.agents.resume_agents.evaluator import evaluate_resume
 from src.agents.resume_agents.job_parser import parse_job
 from src.agents.resume_ingestion import ingest_resume
 from src.services.optimization_engine import optimize_resume
+from src.services.resume_renderer import GENERATED_RESUMES_DIR
 
 
 ROOT_DIR = Path(__file__).resolve().parents[2]
@@ -130,6 +132,24 @@ def optimization_versions(run_id: int) -> dict[str, Any]:
 	return {"run": context["run"], "versions": versions, "comparisons": comparisons}
 
 
+@app.get("/optimization-runs/{run_id}/resume.pdf")
+def optimization_resume_pdf(run_id: int) -> FileResponse:
+	context = get_optimization_context(run_id)
+	if context is None or context["resume"] is None:
+		raise HTTPException(status_code=404, detail="Resume version not found")
+	rendered_path = context["resume"].get("rendered_file_path")
+	if not rendered_path:
+		raise HTTPException(status_code=404, detail="Generated PDF not found")
+	path = Path(rendered_path).resolve()
+	try:
+		path.relative_to(GENERATED_RESUMES_DIR.resolve())
+	except ValueError as error:
+		raise HTTPException(status_code=404, detail="Generated PDF not found") from error
+	if not path.is_file():
+		raise HTTPException(status_code=404, detail="Generated PDF not found")
+	return FileResponse(path, media_type="application/pdf", filename=f"resume-run-{run_id}.pdf")
+
+
 @app.post("/resumes", status_code=201)
 def upload_resume(file: UploadFile = File(...)) -> dict[str, Any]:
 	if file.content_type != "application/pdf" or not file.filename or not file.filename.lower().endswith(".pdf"):
@@ -201,7 +221,10 @@ def match_job(job_id: int, resume_id: int | None = Query(default=None)) -> dict[
 @app.post("/jobs/{job_id}/optimize")
 def optimize_job(job_id: int, resume_id: int = Query(...), max_iterations: int = Query(default=3, ge=1, le=10), min_score_improvement: float = Query(default=2, ge=0), target_score: float = Query(default=85, ge=0, le=100)) -> dict[str, Any]:
 	try:
-		return optimize_resume(resume_id, job_id, BedrockNovaClient(), max_iterations, min_score_improvement, target_score)
+		result = optimize_resume(resume_id, job_id, BedrockNovaClient(), max_iterations, min_score_improvement, target_score)
+		if result["run"]["status"] == "completed":
+			result["resumePdfUrl"] = f"/optimization-runs/{result['run']['id']}/resume.pdf"
+		return result
 	except ValueError as error:
 		raise HTTPException(status_code=404, detail=str(error)) from error
 	except BedrockClientError as error:

@@ -9,6 +9,7 @@ from src.Tools.optimization_tools import (
     fail_optimization_run,
     increment_iteration,
     set_optimization_scores,
+    update_resume_version_rendered_path,
     update_optimization_status,
 )
 from src.Tools.plan_tools import save_rewrite_plan
@@ -19,6 +20,7 @@ from .planner import plan_resume
 from .validator import validate_resume
 from .writer import rewrite_resume
 from .contracts import JobIR, RecoveryDirective, ResumeIR, RewritePlan, ValidationReport
+from src.services.resume_renderer import render_resume_pdf
 
 
 class OrchestratingModelClient(Protocol):
@@ -159,8 +161,16 @@ class ResumeOptimizationOrchestrator:
                 if evaluation.ats_score >= target_score or improvement < min_score_improvement:
                     break
 
+            rendered_path = render_resume_pdf(current, run["id"], version["version_number"])
+            update_resume_version_rendered_path(version["id"], str(rendered_path))
             completed = complete_optimization_run(run["id"], previous_score)
-            return {"run": completed, "resume": current, "evaluation": evaluation.model_dump(), "history": history}
+            return {
+                "run": completed,
+                "resume": current,
+                "evaluation": evaluation.model_dump(),
+                "history": history,
+                "rendered_file_path": str(rendered_path),
+            }
         except Exception:
             fail_optimization_run(run["id"])
             raise

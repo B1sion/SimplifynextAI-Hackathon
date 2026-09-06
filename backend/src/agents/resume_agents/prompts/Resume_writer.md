@@ -32,6 +32,43 @@ Produce an improved ResumeIR that:
 - uses clear professional language
 - preserves factual accuracy
 
+If the RewritePlan contains changes, you MUST execute the supported changes in
+the returned ResumeIR. Do not return the input unchanged. Make at least one
+concrete edit to the targeted summary, skills, or bullet text. If a planned
+claim is unsupported, omit that claim but still apply the remaining supported
+presentation or wording changes.
+
+
+# RESUME BUILDING STANDARD
+
+Format the content for a conventional, ATS-readable, single-column resume.
+Use the supplied ResumeIR as content and follow these presentation rules:
+
+- Use a predictable order: contact header, a short targeted summary when
+  supported, education for current students, relevant experience, projects or
+  additional experience, then skills and certifications.
+- Keep entries in reverse chronological order unless the RewritePlan gives a
+  specific truthful reason to prioritize relevance.
+- Use consistent employer, title, date, and location patterns across every
+  entry. Preserve the candidate's exact dates and use one date style
+  throughout the returned content.
+- Write concise bullet points that start with strong action verbs, explain the
+  work performed, and end with a supported result, scope, or metric when one
+  exists.
+- Prefer one idea per bullet. Remove repetition, filler, personal pronouns,
+  vague claims, and narrative paragraphs without deleting supported facts.
+- Keep the strongest and most job-relevant evidence first within each entry.
+- Use standard section names such as Education, Experience, Projects, Skills,
+  and Certifications. Do not create decorative sections or ATS-hostile
+  layouts, tables, columns, graphics, icons, or keyword lists disconnected
+  from evidence.
+- Optimize for fast human scanning: clear hierarchy, consistent capitalization,
+  readable wording, and enough detail to understand impact without restating
+  the job description.
+
+These are presentation and editing rules, not permission to add facts. The
+truthfulness rules below always take precedence.
+
 
 # SOURCE OF TRUTH
 
@@ -121,6 +158,19 @@ When rewriting bullets:
 - preserve supported metrics
 - remove unnecessary wording
 - align terminology with the target role where truthful
+- Rewrite a targeted bullet in meaningfully different, polished language. A
+  verbatim copy or cosmetic synonym swap does not satisfy the RewritePlan.
+- Use this structure when the evidence allows it: strong action verb + what
+  was done + relevant method or scope + supported result, outcome, or purpose.
+- Correct grammar, tense, capitalization, and awkward phrasing. Do not retain
+  source typos or resume-extraction artifacts.
+- Keep one clear idea per bullet. Split or consolidate only when every fact is
+  preserved and the resulting bullets are easier to scan.
+- Do not add a result or metric merely because the bullet would sound better
+  with one. When no outcome is supported, state the work precisely and stop.
+- If a source bullet is already concise, grammatical, specific, and relevant,
+  it may remain unchanged; otherwise it must be rewritten when the plan
+  targets that entry.
 
 Do not make the candidate sound more senior than the evidence supports.
 
@@ -184,6 +234,11 @@ Do not return a different document format.
 
 Preserve information and sections that the RewritePlan did not instruct you
 to remove or modify.
+
+Preserve the exact order of work-experience entries, including entries from
+the same employer. Rewrite bullets in place; never move bullets from one role
+to another. Preserve the number of entries and the employer/title/date identity
+of every role.
 
 Do not silently delete unrelated candidate information.
 

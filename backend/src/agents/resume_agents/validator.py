@@ -20,10 +20,37 @@ def _flat(resume: ResumeIR) -> str:
 def validate_resume(authoritative_resume: ResumeIR | dict[str, Any], candidate_resume: ResumeIR | dict[str, Any], model_client: ValidationModelClient | None = None) -> ValidationReport:
     authoritative = _validate(ResumeIR, authoritative_resume)
     candidate = _validate(ResumeIR, candidate_resume)
+    structural_issues: list[ValidationIssue] = []
+    original_entries = [
+        (str(item.get("company_name") or ""), str(item.get("job_title") or ""))
+        for item in authoritative.work_experience
+    ]
+    candidate_entries = [
+        (str(item.get("company_name") or ""), str(item.get("job_title") or ""))
+        for item in candidate.work_experience
+    ]
+    if candidate_entries != original_entries:
+        structural_issues.append(ValidationIssue(
+            category="changed_experience_structure",
+            claim="work_experience order or entries",
+            reason="Employer and title sequence must remain unchanged so duplicate employers cannot be mixed up.",
+        ))
+    for field in ("education", "projects"):
+        if len(getattr(candidate, field)) != len(getattr(authoritative, field)):
+            structural_issues.append(ValidationIssue(
+                category="changed_section_structure",
+                claim=field,
+                reason=f"{field} entries must be preserved unless explicitly supported by the rewrite plan.",
+            ))
     if model_client is not None:
-        return _validate(ValidationReport, model_client.validate_resume(authoritative.model_dump(), candidate.model_dump()))
+        report = _validate(ValidationReport, model_client.validate_resume(authoritative.model_dump(), candidate.model_dump()))
+        if structural_issues:
+            report.unsupported_additions.extend(structural_issues)
+            report.valid = False
+            report.summary = report.summary or "Candidate changes the authoritative resume structure"
+        return report
     original_text = _flat(authoritative)
-    issues: list[ValidationIssue] = []
+    issues: list[ValidationIssue] = structural_issues
     for skill in candidate.skills:
         if skill.lower() not in original_text:
             issues.append(ValidationIssue(category="invented_skill", claim=skill, reason="Skill is absent from authoritative resume"))

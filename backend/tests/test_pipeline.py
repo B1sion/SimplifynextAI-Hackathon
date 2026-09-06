@@ -82,6 +82,10 @@ class PipelineTest(unittest.TestCase):
         self.assertEqual([row["version_number"] for row in versions], [0, 1, 2])
         self.assertEqual(context["run"]["status"], "completed")
         self.assertEqual(context["run"]["current_score"], 75)
+        rendered_path = Path(result["rendered_file_path"])
+        self.assertTrue(rendered_path.is_file())
+        self.assertGreater(rendered_path.stat().st_size, 0)
+        rendered_path.unlink(missing_ok=True)
 
     def test_optimization_stops_at_target_score(self):
         person_id = create_person("Ada Lovelace")

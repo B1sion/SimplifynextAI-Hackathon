@@ -77,6 +77,15 @@ def get_resume_version(version_id: int) -> dict[str, Any] | None:
     return row
 
 
+def update_resume_version_rendered_path(version_id: int, rendered_file_path: str) -> dict[str, Any] | None:
+    with get_connection() as connection:
+        connection.execute(
+            "UPDATE resume_versions SET rendered_file_path = ? WHERE id = ?",
+            (rendered_file_path, version_id),
+        )
+    return get_resume_version(version_id)
+
+
 def get_latest_resume_version(run_id: int) -> dict[str, Any] | None:
     with get_connection() as connection:
         row = row_to_dict(connection.execute("SELECT * FROM resume_versions WHERE optimization_run_id = ? ORDER BY version_number DESC LIMIT 1", (run_id,)).fetchone())
