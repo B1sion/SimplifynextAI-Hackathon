@@ -17,7 +17,9 @@ from src.agents.resume_agents.contracts import ATSReport
 from src.agents.resume_agents.evaluator import evaluate_resume
 from src.agents.resume_agents.job_parser import parse_job
 from src.agents.resume_ingestion import ingest_resume
+from src.services.job_ranking import rank_jobs_for_resume
 from src.services.optimization_engine import optimize_resume
+from src.services.presenters import job_to_frontend
 from src.services.resume_renderer import GENERATED_RESUMES_DIR
 
 
@@ -66,21 +68,16 @@ def health() -> dict[str, str]:
 
 
 @app.get("/jobs")
-def list_jobs(resume_id: int | None = Query(default=None), mode: str = Query(default="browse")) -> dict[str, Any]:
-	jobs = get_all_jobs()
-	if resume_id is None:
-		return {"jobs": jobs, "ranked": False, "mode": mode}
-	resume = _resume_payload(resume_id)
-	ranked = []
-	try:
-		# Ranking is intentionally explicit and simple: one ATS evaluation per stored job.
-		for job in jobs:
-			report = evaluate_resume(resume, parse_job(job), BedrockNovaClient())
-			ranked.append({**job, "score": report.ats_score, "evaluation": report.model_dump()})
-	except BedrockClientError as error:
-		raise HTTPException(status_code=503, detail=str(error)) from error
-	ranked.sort(key=lambda item: item["score"], reverse=True)
-	return {"jobs": ranked, "ranked": True, "mode": mode}
+def list_jobs(resume_id: int | None = None, mode: str = "browse") -> list[dict[str, Any]]:
+	resume_record = get_resume(resume_id) if resume_id is not None else get_latest_resume()
+	resume = get_full_resume(resume_record["id"]) if resume_record is not None else None
+	ranked = rank_jobs_for_resume(resume, BedrockNovaClient())
+	jobs = [job_to_frontend(entry, entry["score"] if resume is not None else None) for entry in ranked]
+	if mode == "close" and resume is not None:
+		jobs.sort(key=lambda job: job["score"], reverse=True)
+	else:
+		jobs.sort(key=lambda job: job["title"].casefold())
+	return jobs
 
 
 @app.get("/resumes/{resume_id}/facts")
@@ -197,8 +194,6 @@ def match_job(job_id: int, resume_id: int | None = Query(default=None)) -> dict[
 	job = get_job(job_id)
 	resume_record = get_latest_resume() if resume_id is None else None
 	if resume_id is not None:
-		from src.Tools.resume_tools import get_resume
-
 		resume_record = get_resume(resume_id)
 	if job is None:
 		raise HTTPException(status_code=404, detail="Job not found")

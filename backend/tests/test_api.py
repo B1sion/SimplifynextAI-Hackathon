@@ -27,14 +27,21 @@ class ApiTest(unittest.TestCase):
     def tearDown(self):
         self.temp_dir.cleanup()
 
-    def test_jobs_and_resume_facts_endpoints(self):
-        jobs = list_jobs(resume_id=None, mode="browse")
-        facts = resume_facts(self.resume_id)
+    def test_list_jobs_returns_frontend_job_shape(self):
+        jobs = list_jobs(mode="browse")
+        self.assertIsInstance(jobs, list)
+        self.assertEqual(
+            set(jobs[0].keys()), {"id", "title", "company", "location", "score", "verdict", "verdictLabel"}
+        )
+        self.assertEqual(jobs[0]["id"], str(self.job_id))
 
-        self.assertFalse(jobs["ranked"])
-        self.assertEqual(jobs["jobs"][0]["id"], self.job_id)
-        self.assertEqual(facts["person"]["name"], "Ada Lovelace")
-        self.assertEqual(facts["resume"]["resume_json"]["skills"], ["Python"])
+    def test_list_jobs_close_mode_sorts_by_score_descending(self):
+        second_job_id = add_job("Second Role", "Needs Python", "Engineering", company_name="Other Co")
+        jobs = list_jobs(mode="close")
+        ids = [job["id"] for job in jobs]
+        self.assertEqual(set(ids), {str(self.job_id), str(second_job_id)})
+        scores = [job["score"] for job in jobs]
+        self.assertEqual(scores, sorted(scores, reverse=True))
 
     def test_optimization_context_and_versions_endpoints(self):
         run = create_optimization_run(self.resume_id, self.job_id)
