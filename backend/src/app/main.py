@@ -14,6 +14,7 @@ from src.Tools.job_tools import get_all_jobs, get_job
 from src.Tools.optimization_tools import create_optimization_run, create_resume_version, get_optimization_context, get_resume_versions
 from src.Tools.profile_tools import save_profile_answers
 from src.Tools.resume_tools import get_full_resume, get_latest_resume, get_resume
+from src.Tools.watch_tools import get_watch_settings, set_watch_enabled
 from src.agents.resume_agents.bedrock_client import BedrockClientError, BedrockNovaClient
 from src.agents.resume_agents.contracts import ATSReport
 from src.agents.resume_agents.evaluator import evaluate_resume
@@ -32,6 +33,10 @@ MAX_UPLOAD_BYTES = 10 * 1024 * 1024
 
 class SaveProfileBody(BaseModel):
 	answers: dict[str, int]
+
+
+class SetWatchBody(BaseModel):
+	enabled: bool
 
 
 _PROFILE_QUESTIONS: list[dict[str, Any]] = [
@@ -107,6 +112,34 @@ def save_profile(body: SaveProfileBody, resume_id: int | None = Query(default=No
 	if resume_record is None:
 		raise HTTPException(status_code=404, detail="No resume uploaded yet")
 	save_profile_answers(resume_record["person_id"], body.answers)
+
+
+@app.get("/watch")
+def watch_feed(resume_id: int | None = Query(default=None)) -> dict[str, Any]:
+	if resume_id is not None:
+		resume_record = get_resume(resume_id)
+		if resume_record is None:
+			raise HTTPException(status_code=404, detail="Resume not found")
+	else:
+		resume_record = get_latest_resume()
+	enabled = False
+	if resume_record is not None:
+		enabled = get_watch_settings(resume_record["person_id"])["enabled"]
+	return {
+		"ranAt": "Not run yet",
+		"postingsScanned": 0,
+		"scope": "Overnight watch has not run yet.",
+		"enabled": enabled,
+		"events": [],
+	}
+
+
+@app.put("/watch", status_code=204)
+def set_watch(body: SetWatchBody, resume_id: int | None = Query(default=None)) -> None:
+	resume_record = get_resume(resume_id) if resume_id is not None else get_latest_resume()
+	if resume_record is None:
+		raise HTTPException(status_code=404, detail="No resume uploaded yet")
+	set_watch_enabled(resume_record["person_id"], body.enabled)
 
 
 @app.get("/jobs")

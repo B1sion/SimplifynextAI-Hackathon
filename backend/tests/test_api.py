@@ -24,6 +24,9 @@ from src.app.main import (
     profile_questions,
     resume_facts,
     save_profile,
+    SetWatchBody,
+    set_watch,
+    watch_feed,
 )
 
 
@@ -198,6 +201,20 @@ class ApiTest(unittest.TestCase):
                 self.assertEqual(context.exception.status_code, 404)
             finally:
                 database.DATABASE_PATH = original_path
+
+    def test_watch_feed_reflects_persisted_toggle(self):
+        feed = watch_feed(resume_id=self.resume_id)
+        self.assertFalse(feed["enabled"])
+        self.assertEqual(feed["events"], [])
+
+        set_watch(SetWatchBody(enabled=True), resume_id=self.resume_id)
+        feed = watch_feed(resume_id=self.resume_id)
+        self.assertTrue(feed["enabled"])
+
+    def test_watch_feed_with_unknown_resume_id_returns_404(self):
+        with self.assertRaises(HTTPException) as context:
+            watch_feed(resume_id=999)
+        self.assertEqual(context.exception.status_code, 404)
 
 
 if __name__ == "__main__":
