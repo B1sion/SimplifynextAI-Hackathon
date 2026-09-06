@@ -2,9 +2,8 @@ import unittest
 from unittest.mock import patch
 
 from src.services.presenters import (
-    COMPASS_STUB_CRITERIA,
     WORK_PASS_STUB,
-    compass_stub_report,
+    compute_compass_report,
     facts_to_groups,
     find_skill_evidence,
     job_to_frontend,
@@ -98,12 +97,38 @@ class PresentersTest(unittest.TestCase):
     def test_work_pass_stub_shape(self):
         self.assertEqual(set(WORK_PASS_STUB.keys()), {"points", "needed", "summary"})
 
-    def test_compass_stub_report_shape(self):
+    def test_compass_report_shape_with_no_resume_data(self):
         job = {"id": 5, "job_title": "Analyst", "company_name": "Grab", "location": "Singapore"}
-        report = compass_stub_report(job)
+        report = compute_compass_report(job, None)
         self.assertEqual(report["jobId"], "5")
-        self.assertEqual(report["criteria"], COMPASS_STUB_CRITERIA)
+        self.assertEqual(len(report["criteria"]), 6)
+        self.assertEqual([c["code"] for c in report["criteria"]], ["C1", "C2", "C3", "C4", "C5", "C6"])
         self.assertIn("disclaimer", report)
+        # No salary, no education, no skills on file -> every criterion scores 0.
+        self.assertEqual(sum(c["points"] for c in report["criteria"]), 0)
+
+    def test_compass_report_scores_salary_qualifications_and_skills_from_real_data(self):
+        job = {
+            "id": 5,
+            "job_title": "Analyst",
+            "company_name": "Grab",
+            "location": "Singapore",
+            "salary_min": 3500,
+            "salary_max": 4500,
+            "job_description": "Looking for a candidate skilled in Python and SQL.",
+        }
+        resume_full = {
+            "education": [{"degree": "Bachelor of Science"}],
+            "skills": [{"name": "Python"}, {"name": "SQL"}, {"name": "Excel"}],
+        }
+        report = compute_compass_report(job, resume_full)
+        by_code = {c["code"]: c for c in report["criteria"]}
+        self.assertEqual(by_code["C1"]["points"], 20)
+        self.assertEqual(by_code["C2"]["points"], 10)
+        self.assertEqual(by_code["C5"]["points"], 10)
+        self.assertEqual(by_code["C3"]["points"], 0)
+        self.assertEqual(by_code["C4"]["points"], 0)
+        self.assertEqual(by_code["C6"]["points"], 0)
 
 
 class JobRankingTest(unittest.TestCase):

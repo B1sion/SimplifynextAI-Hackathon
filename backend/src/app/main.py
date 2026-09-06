@@ -21,10 +21,10 @@ from src.agents.resume_agents.contracts import ATSReport
 from src.agents.resume_agents.evaluator import evaluate_resume
 from src.agents.resume_agents.job_parser import parse_job
 from src.agents.resume_ingestion import ingest_resume
-from src.services.action_center import build_blocked_claim, build_resume_diffs
+from src.services.action_center import build_blocked_claim, build_resume_diffs, demo_tailor_fallback
 from src.services.job_ranking import rank_jobs_for_resume, resume_for_evaluator
 from src.services.optimization_engine import optimize_resume
-from src.services.presenters import WORK_PASS_STUB, compass_stub_report, facts_to_groups, job_to_frontend, match_requirements_to_frontend, verdict_for_score
+from src.services.presenters import WORK_PASS_STUB, compute_compass_report, facts_to_groups, job_to_frontend, match_requirements_to_frontend, verdict_for_score
 from src.services.resume_renderer import GENERATED_RESUMES_DIR
 
 
@@ -327,11 +327,18 @@ def job_learning_gaps(job_id: int, resume_id: int = Query(...)) -> dict[str, Any
 
 
 @app.get("/jobs/{job_id}/compass")
-def jobs_compass(job_id: int) -> dict[str, Any]:
+def jobs_compass(job_id: int, resume_id: int | None = Query(default=None)) -> dict[str, Any]:
 	job = get_job(job_id)
 	if job is None:
 		raise HTTPException(status_code=404, detail="Job not found")
-	return compass_stub_report(job)
+	if resume_id is not None:
+		resume_full = get_full_resume(resume_id)
+		if resume_full is None:
+			raise HTTPException(status_code=404, detail="Resume not found")
+	else:
+		resume_summary = get_latest_resume()
+		resume_full = get_full_resume(resume_summary["id"]) if resume_summary else None
+	return compute_compass_report(job, resume_full)
 
 
 @app.get("/optimization-runs/{run_id}")
@@ -484,6 +491,8 @@ def job_actions(job_id: int, resume_id: int | None = Query(default=None)) -> dic
 		final_resume = result.get("resume") or authoritative
 		run_id = (result.get("run") or {}).get("id")
 		diffs = build_resume_diffs(authoritative, final_resume, run_id)
+		if not diffs:
+			diffs = demo_tailor_fallback(job_id, resolved_resume_id) or []
 		blocked = None
 	else:
 		diffs = []

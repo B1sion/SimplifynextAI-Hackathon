@@ -26,7 +26,7 @@
  *   GET  /jobs/unlocks                fetchUnlocks
  *   GET  /jobs/summary                fetchDiscoverSummary
  *   GET  /jobs/:id/match              fetchMatchReport
- *   GET  /jobs/:id/compass            fetchCompassReport (stub — always 0 pts, by design)
+ *   GET  /jobs/:id/compass            fetchCompassReport (estimated from real job/resume data — see README)
  *   GET  /watch                       fetchWatchFeed
  *   PUT  /watch                       setWatchEnabled
  *   GET  /applications                fetchTracker

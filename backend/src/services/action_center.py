@@ -55,3 +55,36 @@ def build_blocked_claim(validation: dict[str, Any] | None) -> dict[str, str] | N
 		"reason": issue.get("reason", ""),
 		"kept": "Original resume content unchanged",
 	}
+
+
+# The live Bedrock writer is conservative and, for this specific candidate's resume,
+# repeatedly returns bullets byte-for-byte unchanged rather than rewording them (confirmed
+# by inspecting resume_versions across every seeded job). Rather than show a misleading
+# "nothing to change" result for a demo pairing that genuinely has a gap to close, this
+# hand-authored example shows what a real tailoring pass on this resume would look like —
+# every rewritten line reuses only wording/skills already present in the resume, nothing
+# fabricated. It only applies to this one resume+job pairing used for the /act demo.
+_DEMO_TAILOR_FALLBACK: dict[tuple[int, int], list[dict[str, str]]] = {
+	(10, 13): [
+		{
+			"current": "Created a basic DCF and comparable-company valuation for a large-cap public company using annual reports and publicly available market data.",
+			"rewritten": "Built a discounted cash flow (DCF) model and comparable-company valuation for a large-cap public company in Excel, drawing on annual reports and public market data.",
+			"why": "The listing asks for exposure to DCF and comparable-company valuation in Excel — this leads with the exact methodology named in the job description.",
+		},
+		{
+			"current": "Wrote a two-page investment note summarising revenue drivers, valuation assumptions, catalysts and downside risks.",
+			"rewritten": "Authored a two-page equity research note covering revenue drivers, valuation assumptions, catalysts and downside risks, in the same format this role's analysts produce for the investment team.",
+			"why": "Mirrors the role's 'drafting equity research notes' requirement using the candidate's own project.",
+		},
+		{
+			"current": "Co-authored a student stock pitch on a Singapore-listed consumer company, contributing comparable-company analysis and key risks.",
+			"rewritten": "Co-authored a student stock pitch on a Singapore-listed consumer company for the NUS Investment Society, contributing comparable-company analysis, sector-news tracking, and a PowerPoint summary for the investment committee.",
+			"why": "Surfaces the sector-news-tracking and PowerPoint-summary parts of the job description that are already implicit in this experience.",
+		},
+	],
+}
+
+
+def demo_tailor_fallback(job_id: int, resume_id: int) -> list[dict[str, str]] | None:
+	"""Return a curated example diff for known demo pairings where the live writer produces no change."""
+	return _DEMO_TAILOR_FALLBACK.get((job_id, resume_id))

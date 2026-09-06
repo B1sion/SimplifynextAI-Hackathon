@@ -219,14 +219,18 @@ class ApiTest(unittest.TestCase):
         met_requirement = next(r for r in response["requirements"] if r["met"])
         self.assertEqual(met_requirement["evidence"], "5 years of Python")
 
-    def test_jobs_compass_returns_stub(self):
-        report = jobs_compass(self.job_id)
+    def test_jobs_compass_returns_estimated_report(self):
+        report = jobs_compass(self.job_id, resume_id=self.resume_id)
         self.assertEqual(report["jobId"], str(self.job_id))
         self.assertEqual(len(report["criteria"]), 6)
 
     def test_jobs_compass_missing_job_returns_404(self):
         with self.assertRaises(Exception):
-            jobs_compass(999)
+            jobs_compass(999, resume_id=self.resume_id)
+
+    def test_jobs_compass_missing_resume_returns_404(self):
+        with self.assertRaises(Exception):
+            jobs_compass(self.job_id, resume_id=999)
 
     def test_profile_questions_returns_static_catalog(self):
         questions = profile_questions()

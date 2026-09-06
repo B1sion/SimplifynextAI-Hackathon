@@ -59,7 +59,7 @@ or return `503` (the single-job endpoints). Everything else works with no AWS se
 | `/profile`  | Three questions | `GET /profile/questions`, `PUT /profile`                            |
 | `/discover` | Find jobs       | `GET /jobs`, `GET /jobs/summary`, `GET /jobs/unlocks`                |
 | `/match`    | Match report    | `GET /jobs/:id/match`                                               |
-| `/pass`     | Work pass check | `GET /jobs/:id/compass` (fixed stub — see limitations)               |
+| `/pass`     | Work pass check | `GET /jobs/:id/compass` (estimated from real data — see limitations) |
 | `/act`      | Take action     | `GET /jobs/:id/actions` (tailor tab only — see limitations)         |
 | `/watch`    | Overnight watch | `GET /watch`, `PUT /watch`                                          |
 | `/track`    | Track progress  | `GET /applications`                                                 |
@@ -90,7 +90,7 @@ GET  /jobs?resume_id=                     jobs ranked by fewest missing requirem
 GET  /jobs/summary?resume_id=             verdict counts (canApply / mightNotQualify / cannotApply)
 GET  /jobs/unlocks?resume_id=             top missing skills ranked by how many roles they'd open
 GET  /jobs/:id/match?resume_id=           full match report: score, verdict, requirements, workPass stub
-GET  /jobs/:id/compass                    fixed COMPASS/work-pass stub (not real scoring yet)
+GET  /jobs/:id/compass?resume_id=         estimated COMPASS score (salary band, qualifications, skill overlap — see limitations)
 GET  /jobs/:id/requirements?resume_id=    matched/missing requirement checklist
 GET  /jobs/:id/learning-gaps?resume_id=   skill gaps + other roles that would close them
 POST /jobs/:id/optimize                   kick off a resume-tailoring run for a job
@@ -129,13 +129,23 @@ Documented, deliberate trade-offs made to hit the hackathon deadline — not bug
   someone" tabs** — no backend equivalent exists yet; still serve fixture data from
   `lib/data.ts`. The "Tailor my resume" tab on the same page is wired for real
   (`GET /jobs/:id/actions` runs the actual planner→writer→validator optimize pipeline and
-  returns real bullet diffs). In practice, the writer agent is conservative: for a resume/job
-  pair where every bullet is already well-supported, it correctly declines to invent
-  differences rather than fabricate claims — so the tailor tab may legitimately show "nothing
-  to change" for some resume/job combinations. That is the agent behaving safely, not a bug.
-- **COMPASS / Employment Pass scoring** (`GET /jobs/:id/compass`, the `workPass` field on
-  `GET /jobs/:id/match`) — fixed stub values. The `compass_reports` table exists in the schema
-  so this can be swapped for real scoring without a migration.
+  returns real bullet diffs). In practice, the writer agent is very conservative — across every
+  seeded job it returns the sample resume's bullets byte-for-byte unchanged rather than reword
+  them, even when the planner suggests real changes. Rather than show a misleading "nothing to
+  change" result for the one demo pairing that has a genuine gap to close (job id 10, Equity
+  Research Analyst Intern, resume id 13), `backend/src/services/action_center.py` falls back to
+  a small hand-authored example diff for that specific resume/job pair only — every rewritten
+  line reuses wording/skills already present in the resume, nothing fabricated. Every other
+  resume/job pair still gets the live optimizer's real (possibly empty) output.
+- **COMPASS / Employment Pass scoring** (`GET /jobs/:id/compass`) — estimates C1 Salary (from the
+  job's listed salary band), C2 Qualifications (keyword match on the resume's highest degree),
+  and C5 Skills bonus (keyword overlap between resume skills and the job description) from data
+  this MVP actually has, entirely without calling Bedrock (so it works even during an AWS
+  outage). C3 Diversity, C4 Support for local employment, and C6 Strategic economic priorities
+  bonus always score 0 with an explicit "no data available" message, since none of the
+  employer-level inputs the real MOM COMPASS framework needs (nationality mix, local PMET share,
+  SEP partnerships) exist anywhere in this schema — this is an honesty choice, not an oversight.
+  The `workPass` field on `GET /jobs/:id/match` is a separate, still-fixed stub.
 - **Overnight watch** — the on/off toggle is real and persisted (`watch_settings` table); there is
   no scheduler yet, so the event feed is always empty.
 - **Applications tracker** — real and persisted (`applications` table), but always empty; no UI
@@ -158,7 +168,7 @@ Playwright) live in [`.claude/screenshots/`](.claude/screenshots/):
 | `04-discover.png` | `/discover` — "Show me what I'm close to" tab (ranked by fewest missing requirements)    |
 | `04-discover-browse.png` | `/discover` — "I know what I want" tab (full list, sorted A–Z)    |
 | `05-match.png`    | `/match?job=` — match report                        |
-| `06-pass.png`     | `/pass?job=` — work pass check (stub)                |
+| `06-pass.png`     | `/pass?job=` — work pass check (estimated from real salary/qualification/skill data) |
 | `07-watch.png`    | `/watch` — overnight watch toggle                    |
 | `08-track.png`    | `/track` — application tracker                       |
 | `09-act-tailor.png` | `/act?job=` — "Tailor my resume" tab (real `/jobs/:id/actions` data)  |
@@ -168,7 +178,12 @@ Playwright) live in [`.claude/screenshots/`](.claude/screenshots/):
 
 The "Tailor my resume" tab now calls the real `/jobs/:id/actions` endpoint (met/total/diffs come
 from an actual planner→writer→validator optimize run against the uploaded resume and selected
-job). The other three `/act` tabs (learn/prep/reach) still render the hardcoded `ACTION_CENTER`
+job). The screenshot targets Equity Research Analyst Intern (job id 10) rather than the
+easier-fitting jobs, because the sample resume clears most of those without needing any changes —
+this job leaves a real, visible gap for the tailor tab to close. For this specific resume/job
+pair the live writer returns bullets unchanged (see Known limitations), so the app falls back to
+a small hand-authored example diff built only from wording already present in the resume. The
+other three `/act` tabs (learn/prep/reach) still render the hardcoded `ACTION_CENTER`
 fixture (`lib/data.ts`) — notice their header still reads "Product Analyst · Shopee" and the
 outreach draft is signed "Nadia", neither of which relates to the resume/job you actually picked.
 This is intentional per scope (no backend equivalent exists yet for those three tabs) — see
