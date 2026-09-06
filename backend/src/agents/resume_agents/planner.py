@@ -16,4 +16,5 @@ def plan_resume(resume: ResumeIR | dict[str, Any], job: JobIR | dict[str, Any], 
     resume_ir = _validate(ResumeIR, resume)
     job_ir = _validate(JobIR, job)
     evaluation_ir = _validate(ATSReport, evaluation)
-    return _validate(RewritePlan, model_client.plan_resume(resume_ir.model_dump(), job_ir.model_dump(), evaluation_ir.model_dump()))
+    result = model_client.plan_resume(resume_ir.model_dump(), job_ir.model_dump(), evaluation_ir.model_dump())
+    return _validate(RewritePlan, result)

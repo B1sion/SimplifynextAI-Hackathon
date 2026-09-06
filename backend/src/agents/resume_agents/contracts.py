@@ -55,17 +55,21 @@ EvaluationReport = ATSReport
 
 
 class PlannedChange(BaseModel):
+    section: str = ""
     target: str
-    action: str
     priority: str
-    reason: str
+    action: str
     instruction: str
+    reason: str
 
 
 class RewritePlan(BaseModel):
+    strategy: str = ""
     changes: list[PlannedChange] = Field(default_factory=list)
-    user_recommendations: list[str] = Field(default_factory=list)
-    prohibited_claims: list[str] = Field(default_factory=list)
+    skills_to_emphasize: list[str] = Field(default_factory=list)
+    keywords_to_integrate: list[str] = Field(default_factory=list)
+    information_not_to_invent: list[str] = Field(default_factory=list)
+    user_suggestions: list[str] = Field(default_factory=list)
 
 
 class ValidationIssue(BaseModel):

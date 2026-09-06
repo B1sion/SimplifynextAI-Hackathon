@@ -80,20 +80,20 @@ def match_job(job_id: int, resume_id: int | None = Query(default=None)) -> dict:
 		raise HTTPException(status_code=503, detail=str(error)) from error
 	run = create_optimization_run(resume_record["id"], job_id, max_iterations=3)
 	version = create_resume_version(run["id"], resume_record.get("resume_json") or resume)
-	evaluation = save_evaluation(run["id"], version["id"], 0, report.overall_score, report.model_dump())
+	evaluation = save_evaluation(run["id"], version["id"], 0, report.ats_score, report.model_dump())
 	requirements = [
-		{"met": True, "text": item, "evidence": ", ".join(report.supporting_resume_evidence.get(item, [])), "location": "Resume"}
-		for item in report.matched_requirements
+		{"met": True, "text": item, "location": "Resume"}
+		for item in report.matched_skills
 	]
-	requirements.extend({"met": False, "text": item, "note": "Not found in the resume"} for item in report.missing_requirements)
+	requirements.extend({"met": False, "text": item, "note": "Not found in the resume"} for item in report.missing_skills)
 	return {
 		"jobId": str(job_id),
 		"jobTitle": job["job_title"],
 		"company": job.get("company_name") or "",
 		"location": job.get("location") or "",
-		"verdict": "v" if report.overall_score >= 70 else "c" if report.overall_score >= 50 else "b",
-		"verdictLabel": "Strong match" if report.overall_score >= 70 else "Review gaps",
-		"score": report.overall_score,
+		"verdict": "v" if report.ats_score >= 70 else "c" if report.ats_score >= 50 else "b",
+		"verdictLabel": "Strong match" if report.ats_score >= 70 else "Review gaps",
+		"score": report.ats_score,
 		"agents": [{"name": "ATS evaluator", "ok": True, "detail": "Evaluation persisted locally"}],
 		"requirements": requirements,
 		"evaluationId": evaluation["id"],

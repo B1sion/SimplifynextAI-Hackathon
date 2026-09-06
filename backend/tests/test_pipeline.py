@@ -9,7 +9,6 @@ from src.Tools.job_tools import add_job
 from src.Tools.optimization_tools import get_optimization_context, get_resume_versions
 from src.Tools.person_tools import create_person
 from src.Tools.resume_tools import create_resume
-from src.agents.resume_agents.agentcore_client import AgentCoreClient, AgentCoreError
 from src.agents.resume_agents.evaluator import evaluate_resume
 from src.agents.resume_agents.job_parser import parse_job
 from src.services.optimization_engine import optimize_resume
@@ -24,10 +23,13 @@ class PipelineTest(unittest.TestCase):
     def tearDown(self):
         self.temp_dir.cleanup()
 
-    def test_evaluator_rejects_malformed_agentcore_output(self):
-        client = AgentCoreClient(invoke=lambda operation, payload: [])
-        with self.assertRaises(AgentCoreError):
-            evaluate_resume({"name": "Ada"}, parse_job({"job_title": "Engineer", "job_description": "Python"}), client)
+    def test_evaluator_rejects_malformed_model_output(self):
+        class MalformedClient:
+            def evaluate_resume(self, resume, job):
+                return []
+
+        with self.assertRaises((TypeError, ValueError)):
+            evaluate_resume({"name": "Ada"}, parse_job({"job_title": "Engineer", "job_description": "Python"}), MalformedClient())
 
     def test_evaluator_validates_mocked_ats_report(self):
         class MockEvaluator:
@@ -58,18 +60,20 @@ class PipelineTest(unittest.TestCase):
             {"changes": [{"target": "summary", "action": "rewrite", "priority": "low", "reason": "clarity", "instruction": "Clarify existing evidence"}]},
         ])
 
-        def invoke(operation, payload):
-            if operation == "evaluate_resume":
-                return {"overall_score": next(scores), "matched_skills": ["Python"], "component_scores": {"skills": 100}}
-            if operation == "plan_resume":
-                return next(plans)
-            if operation == "rewrite_resume":
-                return payload["resume"]
-            if operation == "validate_resume":
-                return {"valid": True, "summary": "ok"}
-            raise AssertionError(operation)
+        class MockModelClient:
+            def evaluate_resume(self, resume, job):
+                return {"ats_score": next(scores), "matched_skills": ["Python"]}
 
-        result = optimize_resume(resume_id, job_id, AgentCoreClient(invoke=invoke))
+            def plan_resume(self, resume, job, evaluation):
+                return next(plans)
+
+            def rewrite_resume(self, resume, job, plan):
+                return resume
+
+            def validate_resume(self, authoritative_resume, candidate_resume):
+                return {"valid": True, "summary": "ok"}
+
+        result = optimize_resume(resume_id, job_id, MockModelClient())
         run_id = result["run"]["id"]
         evaluations = get_evaluations_for_run(run_id)
         versions = get_resume_versions(run_id)
@@ -78,6 +82,64 @@ class PipelineTest(unittest.TestCase):
         self.assertEqual([row["version_number"] for row in versions], [0, 1, 2])
         self.assertEqual(context["run"]["status"], "completed")
         self.assertEqual(context["run"]["current_score"], 75)
+
+    def test_optimization_stops_at_target_score(self):
+        person_id = create_person("Ada Lovelace")
+        resume_id = create_resume(person_id, "Ada", raw_text="Python", resume_json={"name": "Ada", "raw_text": "Python", "skills": ["Python"]})
+        job_id = add_job("Engineer", "Python engineer", "Engineering")
+
+        class TargetClient:
+            def evaluate_resume(self, resume, job):
+                return {"ats_score": 85}
+
+        result = optimize_resume(resume_id, job_id, TargetClient())
+        self.assertEqual(len(get_evaluations_for_run(result["run"]["id"])), 1)
+        self.assertEqual(result["run"]["status"], "completed")
+
+    def test_validator_rejection_does_not_persist_candidate_version(self):
+        person_id = create_person("Ada Lovelace")
+        resume_id = create_resume(person_id, "Ada", raw_text="Python", resume_json={"name": "Ada", "raw_text": "Python", "skills": ["Python"]})
+        job_id = add_job("Engineer", "Python engineer", "Engineering")
+
+        class RejectingClient:
+            def evaluate_resume(self, resume, job):
+                return {"ats_score": 60}
+
+            def plan_resume(self, resume, job, evaluation):
+                return {"changes": [{"target": "summary", "priority": "high", "action": "rewrite", "instruction": "Rewrite", "reason": "clarity"}]}
+
+            def rewrite_resume(self, resume, job, plan):
+                return {**resume, "skills": ["Python", "Kubernetes"]}
+
+            def validate_resume(self, authoritative_resume, candidate_resume):
+                return {"valid": False, "summary": "Unsupported skill"}
+
+        result = optimize_resume(resume_id, job_id, RejectingClient())
+        self.assertEqual(result["run"]["status"], "failed")
+        self.assertEqual(len(get_resume_versions(result["run"]["id"])), 1)
+
+    def test_optimization_does_not_exceed_max_iterations(self):
+        person_id = create_person("Ada Lovelace")
+        resume_id = create_resume(person_id, "Ada", raw_text="Python", resume_json={"name": "Ada", "raw_text": "Python", "skills": ["Python"]})
+        job_id = add_job("Engineer", "Python engineer", "Engineering")
+        scores = iter([60, 65, 70, 75])
+
+        class BoundedClient:
+            def evaluate_resume(self, resume, job):
+                return {"ats_score": next(scores)}
+
+            def plan_resume(self, resume, job, evaluation):
+                return {"changes": [{"target": "summary", "priority": "low", "action": "rewrite", "instruction": "Clarify", "reason": "clarity"}]}
+
+            def rewrite_resume(self, resume, job, plan):
+                return resume
+
+            def validate_resume(self, authoritative_resume, candidate_resume):
+                return {"valid": True}
+
+        result = optimize_resume(resume_id, job_id, BoundedClient(), max_iterations=3, min_score_improvement=0)
+        self.assertEqual(len(get_evaluations_for_run(result["run"]["id"])), 4)
+        self.assertEqual(len(get_resume_versions(result["run"]["id"])), 4)
 
 
 if __name__ == "__main__":

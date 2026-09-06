@@ -1,5 +1,6 @@
 import json
 import os
+from pathlib import Path
 from typing import Any
 
 
@@ -50,6 +51,15 @@ class BedrockNovaClient:
             raise BedrockClientError(f"Bedrock {self.model_id} request failed: {error}") from error
 
     @staticmethod
+    def _load_prompt(filename: str, fallback: str) -> str:
+        prompt_path = Path(__file__).parent / "prompts" / filename
+        try:
+            prompt = prompt_path.read_text(encoding="utf-8").strip()
+        except OSError:
+            prompt = ""
+        return prompt or fallback
+
+    @staticmethod
     def _parse_json(text: str) -> Any:
         cleaned = text.strip()
         if cleaned.startswith("```"):
@@ -67,19 +77,19 @@ class BedrockNovaClient:
 
     def evaluate_resume(self, resume: dict[str, Any], job: dict[str, Any]) -> dict[str, Any]:
         return self.generate_json(
-            """Act as an ATS resume evaluator. Compare the resume to the complete job description and return ONLY valid JSON with keys: ats_score (0-100 number), summary (string), strengths (array of strings), weaknesses (array of strings), matched_skills (array of strings), missing_skills (array of strings), keyword_gaps (array of strings), experience_gaps (array of strings), ats_issues (array of strings), high_priority_improvements (array of strings). Use only evidence present in the resume; do not invent candidate facts.""",
+            self._load_prompt("ATS_evaluator.md", "Act as an ATS resume evaluator and return only the ATSReport JSON object."),
             {"resume": resume, "job": job},
         )
 
     def plan_resume(self, resume: dict[str, Any], job: dict[str, Any], evaluation: dict[str, Any]) -> dict[str, Any]:
         return self.generate_json(
-            """Act as a resume rewrite planner. Return ONLY valid JSON with keys changes, user_recommendations, prohibited_claims. Each change must contain target, action, priority, reason, instruction. Plan truthful edits only; do not rewrite the resume.""",
+            self._load_prompt("Resume_planner.md", "Act as a resume rewrite planner and return only the RewritePlan JSON object."),
             {"resume": resume, "job": job, "ats_report": evaluation},
         )
 
     def rewrite_resume(self, resume: dict[str, Any], job: dict[str, Any], plan: dict[str, Any]) -> dict[str, Any]:
         return self.generate_json(
-            """Act as a truthful resume writer. Return ONLY a complete ResumeIR JSON object. Apply the rewrite plan for ATS clarity, but preserve every fact, date, title, skill, employer, project, credential, and education claim unless it is already supported by the input resume. Never invent metrics or experience.""",
+            self._load_prompt("Resume_writer.md", "Act as a truthful resume writer and return only a complete ResumeIR JSON object."),
             {"resume": resume, "job": job, "rewrite_plan": plan},
         )
 
