@@ -1,8 +1,10 @@
+import os
 from pathlib import Path
 from typing import Any
 from uuid import uuid4
 
 from fastapi import FastAPI, File, HTTPException, Query, UploadFile
+from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import FileResponse
 
 from database.database import initialize_database
@@ -24,6 +26,19 @@ ORIGINAL_RESUMES_DIR = ROOT_DIR / "storage" / "original_resumes"
 MAX_UPLOAD_BYTES = 10 * 1024 * 1024
 
 app = FastAPI(title="Simplify Resume API")
+
+_ALLOWED_ORIGINS = [
+	origin.strip()
+	for origin in os.environ.get("CORS_ALLOWED_ORIGINS", "http://localhost:3000").split(",")
+	if origin.strip()
+]
+app.add_middleware(
+	CORSMiddleware,
+	allow_origins=_ALLOWED_ORIGINS,
+	allow_credentials=False,
+	allow_methods=["*"],
+	allow_headers=["*"],
+)
 
 
 def _resume_payload(resume_id: int) -> dict[str, Any]:

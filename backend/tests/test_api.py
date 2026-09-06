@@ -51,6 +51,21 @@ class ApiTest(unittest.TestCase):
         with self.assertRaises(Exception):
             optimization_run(999)
 
+    def test_cors_allows_frontend_origin(self):
+        from starlette.testclient import TestClient
+        from src.app.main import app
+
+        with TestClient(app) as client:
+            response = client.options(
+                "/jobs",
+                headers={
+                    "Origin": "http://localhost:3000",
+                    "Access-Control-Request-Method": "GET",
+                },
+            )
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(response.headers["access-control-allow-origin"], "http://localhost:3000")
+
 
 if __name__ == "__main__":
     unittest.main()
