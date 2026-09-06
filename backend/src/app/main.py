@@ -21,7 +21,7 @@ from src.agents.resume_agents.contracts import ATSReport
 from src.agents.resume_agents.evaluator import evaluate_resume
 from src.agents.resume_agents.job_parser import parse_job
 from src.agents.resume_ingestion import ingest_resume
-from src.services.job_ranking import rank_jobs_for_resume
+from src.services.job_ranking import rank_jobs_for_resume, resume_for_evaluator
 from src.services.optimization_engine import optimize_resume
 from src.services.presenters import WORK_PASS_STUB, compass_stub_report, facts_to_groups, job_to_frontend, match_requirements_to_frontend, verdict_for_score
 from src.services.resume_renderer import GENERATED_RESUMES_DIR
@@ -413,7 +413,7 @@ def match_job(job_id: int, resume_id: int | None = Query(default=None)) -> dict[
 	resume = get_full_resume(resume_record["id"])
 	try:
 		job_ir = parse_job(job)
-		report = evaluate_resume(resume, job_ir, BedrockNovaClient())
+		report = evaluate_resume(resume_for_evaluator(resume), job_ir, BedrockNovaClient())
 	except BedrockClientError as error:
 		raise HTTPException(status_code=503, detail=str(error)) from error
 	run = create_optimization_run(resume_record["id"], job_id, max_iterations=3)
