@@ -99,3 +99,12 @@ class BedrockNovaClient:
             """Act as a resume truthfulness validator. Return ONLY valid JSON with keys valid (boolean), unsupported_additions (array of objects with category, claim, reason), changed_dates (array of strings), inflated_titles (array of strings), and summary (string). Reject unsupported facts, invented metrics, skills, technologies, responsibilities, credentials, projects, education, dates, titles, or seniority.""",
             {"authoritative_resume": authoritative_resume, "candidate_resume": candidate_resume},
         )
+
+    def orchestrate(self, state: dict[str, Any]) -> dict[str, Any]:
+        return self.generate_json(
+            self._load_prompt(
+                "Ochestrator.md",
+                "Analyze the failed resume workflow and return only a RecoveryDirective JSON object.",
+            ),
+            state,
+        )

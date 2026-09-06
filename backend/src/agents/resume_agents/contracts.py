@@ -84,3 +84,15 @@ class ValidationReport(BaseModel):
     changed_dates: list[str] = Field(default_factory=list)
     inflated_titles: list[str] = Field(default_factory=list)
     summary: str = ""
+
+
+class RecoveryDirective(BaseModel):
+    failure_type: str
+    summary: str = ""
+    validation_failures: list[str] = Field(default_factory=list)
+    facts_to_restore: list[str] = Field(default_factory=list)
+    facts_to_preserve: list[str] = Field(default_factory=list)
+    unsupported_content_to_remove: list[str] = Field(default_factory=list)
+    planner_corrections: list[str] = Field(default_factory=list)
+    writer_constraints: list[str] = Field(default_factory=list)
+    retry_strategy: str = ""

@@ -11,6 +11,12 @@ SECTION_NAMES = {
     "projects": {"projects", "personal projects"},
     "skills": {"skills", "technical skills", "core skills"},
 }
+SECTION_ALIASES = {
+    "education experience": "experience",
+    "other experience": "experience",
+    "other experiences": "experience",
+}
+DATE_RANGE_RE = re.compile(r"\s+(?P<start>[A-Za-z]+\s+\d{4})\s*[-–]\s*(?P<end>[A-Za-z]+\s+\d{4})$")
 RESUME_READER_PROMPT_PATH = Path(__file__).parent / "resume_agents" / "Resume_reader.md"
 
 
@@ -27,7 +33,7 @@ def _section_lines(text: str) -> dict[str, list[str]]:
         if not line:
             continue
         normalized = line.lower().rstrip(":")
-        matched = next((name for name, headings in SECTION_NAMES.items() if normalized in headings), None)
+        matched = SECTION_ALIASES.get(normalized) or next((name for name, headings in SECTION_NAMES.items() if normalized in headings), None)
         if matched:
             current = matched
         elif current:
@@ -50,24 +56,50 @@ def _parse_experience(lines: list[str]) -> list[dict[str, str | None]]:
         if " | " in line:
             job_title, company_name = [part.strip() for part in line.split(" | ", 1)]
             entries.append({"company_name": company_name, "job_title": job_title, "description": None, "experience_order": index})
-        elif " - " in line and len(line.split(" - ", 1)[0].split()) <= 8:
-            job_title, company_name = [part.strip() for part in line.split(" - ", 1)]
-            entries.append({"company_name": company_name, "job_title": job_title, "description": None, "experience_order": index})
-        elif entries:
-            description = entries[-1]["description"]
-            entries[-1]["description"] = f"{description}\n{line}" if description else line
+        else:
+            date_match = DATE_RANGE_RE.search(line)
+            if date_match:
+                company_name = line[:date_match.start()].strip()
+                entries.append({
+                    "company_name": company_name,
+                    "job_title": None,
+                    "start_date": date_match.group("start"),
+                    "end_date": date_match.group("end"),
+                    "description": None,
+                    "experience_order": index,
+                })
+            elif entries and entries[-1]["job_title"] is None:
+                entries[-1]["job_title"] = line
+            elif entries:
+                description = entries[-1]["description"]
+                entries[-1]["description"] = f"{description}\n{line}" if description else line
     return entries
 
 
 def _parse_education(lines: list[str]) -> list[dict[str, str | None]]:
     entries: list[dict[str, str | None]] = []
-    for index, line in enumerate(lines):
-        parts = [part.strip() for part in re.split(r"\s+\|\s+|\s+[-–]\s+", line, maxsplit=1)]
-        if len(parts) == 2:
-            institution, degree = parts
+    for line in lines:
+        date_match = DATE_RANGE_RE.search(line)
+        if " | " in line and not date_match:
+            institution, degree = [part.strip() for part in line.split(" | ", 1)]
+            entries.append({"institution": institution, "degree": degree, "description": None, "education_order": len(entries)})
+        elif date_match:
+            institution = line[:date_match.start()].strip()
+            entries.append({
+                "institution": institution,
+                "degree": None,
+                "start_date": date_match.group("start"),
+                "end_date": date_match.group("end"),
+                "description": None,
+                "education_order": len(entries),
+            })
+        elif entries and entries[-1]["degree"] is None:
+            entries[-1]["degree"] = line
+        elif entries:
+            description = entries[-1]["description"]
+            entries[-1]["description"] = f"{description}\n{line}" if description else line
         else:
-            institution, degree = line, None
-        entries.append({"institution": institution, "degree": degree, "education_order": index})
+            entries.append({"institution": line, "degree": None, "description": None, "education_order": len(entries)})
     return entries
 
 
@@ -82,7 +114,7 @@ def parse_resume(text: str) -> dict[str, Any]:
     sections = _section_lines(text)
     email_match = re.search(r"[\w.+-]+@[\w-]+(?:\.[\w-]+)+", text)
     phone_match = re.search(r"(?:\+?\d[\d ()-]{7,}\d)", text)
-    urls = re.findall(r"https?://\S+", text)
+    urls = re.findall(r"(?:https?://|www\.)\S+", text)
     skills = [skill.strip() for line in sections["skills"] for skill in re.split(r",|\||•", line) if skill.strip()]
     return {
         "name": _first_name(text),

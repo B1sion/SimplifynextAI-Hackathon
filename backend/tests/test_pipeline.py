@@ -96,6 +96,71 @@ class PipelineTest(unittest.TestCase):
         self.assertEqual(len(get_evaluations_for_run(result["run"]["id"])), 1)
         self.assertEqual(result["run"]["status"], "completed")
 
+    def test_orchestrator_retries_rejected_candidate_before_persisting(self):
+        person_id = create_person("Ada Lovelace", email="ada@example.com")
+        resume_id = create_resume(
+            person_id,
+            "Ada",
+            raw_text="Python",
+            resume_json={"name": "Ada Lovelace", "email": "ada@example.com", "raw_text": "Python", "skills": ["Python"]},
+        )
+        job_id = add_job("Engineer", "Python engineer", "Engineering")
+
+        class RetryingClient:
+            def __init__(self):
+                self.plan_calls = 0
+                self.rewrite_calls = 0
+                self.orchestrator_calls = 0
+
+            def evaluate_resume(self, resume, job):
+                return {"ats_score": 60 if self.rewrite_calls == 0 else 80}
+
+            def plan_resume(self, resume, job, evaluation):
+                self.plan_calls += 1
+                self.received_recovery = "recovery_directive" in evaluation
+                return {"changes": [{"target": "summary", "priority": "high", "action": "rewrite", "instruction": "Clarify", "reason": "alignment"}]}
+
+            def rewrite_resume(self, resume, job, plan):
+                self.rewrite_calls += 1
+                if self.rewrite_calls == 1:
+                    return {**resume, "skills": ["Python", "Kubernetes"]}
+                return {**resume, "summary": "Python engineer"}
+
+            def validate_resume(self, authoritative_resume, candidate_resume):
+                if self.rewrite_calls == 1:
+                    return {
+                        "valid": False,
+                        "unsupported_additions": [{"category": "invented_skill", "claim": "Kubernetes", "reason": "Unsupported skill"}],
+                        "summary": "Unsupported skill",
+                    }
+                return {"valid": True, "summary": "Candidate is truthful"}
+
+            def orchestrate(self, state):
+                self.orchestrator_calls += 1
+                self.validation_report = state["validation_report"]
+                return {
+                    "failure_type": "writer_failure",
+                    "summary": "Remove the unsupported skill and preserve the authoritative fields.",
+                    "validation_failures": ["Kubernetes"],
+                    "facts_to_restore": [],
+                    "facts_to_preserve": ["email", "skills"],
+                    "unsupported_content_to_remove": ["Kubernetes"],
+                    "planner_corrections": ["Keep the rewrite limited to supported evidence."],
+                    "writer_constraints": ["Preserve all untouched fields exactly."],
+                    "retry_strategy": "Retry with corrected instructions.",
+                }
+
+        client = RetryingClient()
+        result = optimize_resume(resume_id, job_id, client, max_iterations=1, target_score=80)
+
+        self.assertEqual(result["run"]["status"], "completed")
+        self.assertEqual(client.orchestrator_calls, 1)
+        self.assertEqual(client.plan_calls, 2)
+        self.assertTrue(client.received_recovery)
+        self.assertEqual(len(get_resume_versions(result["run"]["id"])), 2)
+        self.assertEqual([row["score"] for row in get_evaluations_for_run(result["run"]["id"])], [60, 80])
+        self.assertNotIn("Kubernetes", result["resume"]["skills"])
+
     def test_validator_rejection_does_not_persist_candidate_version(self):
         person_id = create_person("Ada Lovelace")
         resume_id = create_resume(person_id, "Ada", raw_text="Python", resume_json={"name": "Ada", "raw_text": "Python", "skills": ["Python"]})
