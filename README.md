@@ -155,7 +155,8 @@ Playwright) live in [`.claude/screenshots/`](.claude/screenshots/):
 | `01-upload.png`   | `/` — upload resume                                |
 | `02-facts.png`    | `/facts` — parsed facts from a real PDF            |
 | `03-profile.png`  | `/profile` — three questions                        |
-| `04-discover.png` | `/discover` — job list ranked against the resume    |
+| `04-discover.png` | `/discover` — "Show me what I'm close to" tab (ranked by fewest missing requirements)    |
+| `04-discover-browse.png` | `/discover` — "I know what I want" tab (full list, sorted A–Z)    |
 | `05-match.png`    | `/match?job=` — match report                        |
 | `06-pass.png`     | `/pass?job=` — work pass check (stub)                |
 | `07-watch.png`    | `/watch` — overnight watch toggle                    |
