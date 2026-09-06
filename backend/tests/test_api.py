@@ -58,6 +58,17 @@ class ApiTest(unittest.TestCase):
             list_jobs(resume_id=999)
         self.assertEqual(context.exception.status_code, 404)
 
+    def test_resume_facts_returns_fact_groups(self):
+        from src.Tools.skill_tools import add_skill_to_resume, create_skill
+
+        skill_id = create_skill("Python")
+        add_skill_to_resume(self.resume_id, skill_id, source="explicit", evidence="Python developer")
+        facts = resume_facts(self.resume_id)
+        self.assertIsInstance(facts, list)
+        skills_group = next(g for g in facts if g["group"] == "Skills")
+        self.assertEqual(skills_group["items"][0]["value"], "Python")
+        self.assertEqual(skills_group["items"][0]["source"], "Python developer")
+
     def test_optimization_context_and_versions_endpoints(self):
         run = create_optimization_run(self.resume_id, self.job_id)
         create_resume_version(run["id"], {"name": "Ada Lovelace"}, version_number=0)

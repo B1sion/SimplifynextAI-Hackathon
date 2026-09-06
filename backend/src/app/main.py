@@ -19,7 +19,7 @@ from src.agents.resume_agents.job_parser import parse_job
 from src.agents.resume_ingestion import ingest_resume
 from src.services.job_ranking import rank_jobs_for_resume
 from src.services.optimization_engine import optimize_resume
-from src.services.presenters import job_to_frontend
+from src.services.presenters import facts_to_groups, job_to_frontend
 from src.services.resume_renderer import GENERATED_RESUMES_DIR
 
 
@@ -86,11 +86,11 @@ def list_jobs(resume_id: int | None = None, mode: str = "browse") -> list[dict[s
 
 
 @app.get("/resumes/{resume_id}/facts")
-def resume_facts(resume_id: int) -> dict[str, Any]:
+def resume_facts(resume_id: int) -> list[dict[str, Any]]:
 	resume = get_full_resume(resume_id)
 	if resume is None:
 		raise HTTPException(status_code=404, detail="Resume not found")
-	return resume
+	return facts_to_groups(resume)
 
 
 @app.get("/jobs/{job_id}/requirements")
