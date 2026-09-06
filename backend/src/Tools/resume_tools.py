@@ -21,6 +21,14 @@ def get_resume(resume_id):
     return row
 
 
+def get_latest_resume():
+    with get_connection() as connection:
+        row = row_to_dict(connection.execute("SELECT * FROM resumes ORDER BY id DESC LIMIT 1").fetchone())
+    if row:
+        row["resume_json"] = loads(row["resume_json"])
+    return row
+
+
 def get_resumes_for_person(person_id):
     with get_connection() as connection:
         rows = rows_to_dicts(connection.execute("SELECT * FROM resumes WHERE person_id = ? ORDER BY id", (person_id,)))

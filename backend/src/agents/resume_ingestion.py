@@ -11,7 +11,7 @@ from src.agents.resume_parser import extract_pdf_text, parse_resume, parse_resum
 
 def ingest_resume(file_path: Path, original_file_path: str | None = None) -> dict:
     text = extract_pdf_text(file_path)
-    parsed = parse_resume_with_agent(text) if os.environ.get("BEDROCK_AGENT_ID") else parse_resume(text)
+    parsed = parse_resume_with_agent(text) if os.environ.get("AGENTCORE_RUNTIME_ARN") else parse_resume(text)
     person_id = create_person(
         parsed["name"],
         email=parsed["email"],

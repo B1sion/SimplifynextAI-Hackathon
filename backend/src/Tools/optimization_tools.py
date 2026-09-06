@@ -38,6 +38,21 @@ def complete_optimization_run(run_id, current_score=None):
     return get_optimization_run(run_id)
 
 
+def fail_optimization_run(run_id):
+    with get_connection() as connection:
+        connection.execute("UPDATE optimization_runs SET status = 'failed', updated_at = CURRENT_TIMESTAMP WHERE id = ?", (run_id,))
+    return get_optimization_run(run_id)
+
+
+def set_optimization_scores(run_id, initial_score=None, current_score=None):
+    with get_connection() as connection:
+        connection.execute(
+            "UPDATE optimization_runs SET initial_score = COALESCE(?, initial_score), current_score = COALESCE(?, current_score), updated_at = CURRENT_TIMESTAMP WHERE id = ?",
+            (initial_score, current_score, run_id),
+        )
+    return get_optimization_run(run_id)
+
+
 def create_resume_version(optimization_run_id, resume_json, rendered_file_path=None, parent_version_id=None, version_number=None):
     with get_connection() as connection:
         if version_number is None:

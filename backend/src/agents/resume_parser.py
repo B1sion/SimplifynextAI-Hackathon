@@ -1,8 +1,5 @@
-import os
-import json
 import re
 from pathlib import Path
-from uuid import uuid4
 
 from pypdf import PdfReader
 
@@ -101,23 +98,8 @@ def parse_resume(text: str) -> dict:
 
 
 def parse_resume_with_agent(text: str) -> dict:
-    """Ask the configured Bedrock agent to convert text into resume JSON."""
-    from boto3 import client
+    """Ask AgentCore to convert text into resume JSON."""
+    from src.agents.resume_agents.agentcore_client import AgentCoreClient
 
-    reader_prompt = RESUME_READER_PROMPT_PATH.read_text(encoding="utf-8").strip()
-    if not reader_prompt:
-        raise RuntimeError(f"Resume reader prompt is empty: {RESUME_READER_PROMPT_PATH}")
-
-    agent_id = os.environ["BEDROCK_AGENT_ID"]
-    alias_id = os.environ["BEDROCK_AGENT_ALIAS_ID"]
-    runtime = client("bedrock-agent-runtime", region_name=os.getenv("AWS_REGION", "us-east-1"))
-    prompt = f"{reader_prompt}\n\nRESUME TEXT TO PARSE:\n\n{text}"
-    response = runtime.invoke_agent(
-        agentId=agent_id,
-        agentAliasId=alias_id,
-        sessionId=uuid4().hex,
-        inputText=prompt,
-    )
-    output = b"".join(event["chunk"]["bytes"] for event in response["completion"])
-    parsed = json.loads(output.decode("utf-8").strip())
+    parsed = AgentCoreClient().parse_resume(text)
     return {**parsed, "raw_text": text}
