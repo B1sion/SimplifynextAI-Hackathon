@@ -24,6 +24,9 @@ class ResumeIR(BaseModel):
 class JobIR(BaseModel):
     title: str
     company_name: str | None = None
+    category: str | None = None
+    min_years_experience: int | None = None
+    max_years_experience: int | None = None
     original_description: str
     required_skills: list[str] = Field(default_factory=list)
     preferred_skills: list[str] = Field(default_factory=list)
@@ -98,3 +101,24 @@ class RecoveryDirective(BaseModel):
     planner_corrections: list[str] = Field(default_factory=list)
     writer_constraints: list[str] = Field(default_factory=list)
     retry_strategy: str = ""
+
+
+class InterviewQuestion(BaseModel):
+    question: str
+    answer: str
+    use: str
+
+
+class InterviewPrep(BaseModel):
+    questions: list[InterviewQuestion] = Field(default_factory=list)
+
+
+class InterviewAnswerVerdict(BaseModel):
+    question: str
+    valid: bool
+    issues: list[str] = Field(default_factory=list)
+
+
+class InterviewValidationReport(BaseModel):
+    verdicts: list[InterviewAnswerVerdict] = Field(default_factory=list)
+    summary: str = ""

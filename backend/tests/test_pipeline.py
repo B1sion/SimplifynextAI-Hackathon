@@ -1,6 +1,7 @@
 import tempfile
 import unittest
 from pathlib import Path
+from unittest.mock import patch
 
 from database import database
 from database.database import initialize_database
@@ -11,6 +12,7 @@ from src.Tools.person_tools import create_person
 from src.Tools.resume_tools import create_resume
 from src.agents.resume_agents.evaluator import evaluate_resume
 from src.agents.resume_agents.job_parser import parse_job
+from src.services import resume_renderer
 from src.services.optimization_engine import optimize_resume
 
 
@@ -19,8 +21,15 @@ class PipelineTest(unittest.TestCase):
         self.temp_dir = tempfile.TemporaryDirectory()
         database.DATABASE_PATH = Path(self.temp_dir.name) / "resume_builder.db"
         initialize_database()
+        self.renderer_patch = patch.object(
+            resume_renderer,
+            "GENERATED_RESUMES_DIR",
+            Path(self.temp_dir.name) / "generated_resumes",
+        )
+        self.renderer_patch.start()
 
     def tearDown(self):
+        self.renderer_patch.stop()
         self.temp_dir.cleanup()
 
     def test_evaluator_rejects_malformed_model_output(self):

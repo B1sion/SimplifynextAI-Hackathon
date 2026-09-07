@@ -3,7 +3,7 @@ import base64
 import unittest
 
 from src.agents.resume_agents.agentcore_client import AgentCoreClient
-from src.agents.resume_agents.bedrock_client import BedrockClientError, BedrockNovaClient
+from src.agents.resume_agents.bedrock_client import BedrockNovaClient, ModelClientError
 from src.agents.resume_agents.contracts import ATSReport, JobIR, ResumeIR, RewritePlan
 from src.agents.resume_agents.evaluator import evaluate_resume
 from src.agents.resume_agents.job_parser import parse_job
@@ -95,7 +95,7 @@ class AgentWorkflowTest(unittest.TestCase):
         self.assertEqual(client.generate_json("Return JSON", {})["ats_score"], 76)
 
     def test_bedrock_client_rejects_non_json_model_output(self):
-        with self.assertRaises(BedrockClientError):
+        with self.assertRaises(ModelClientError):
             BedrockNovaClient._parse_json("The model did not return JSON")
 
     def test_job_parser_preserves_description_and_classifies_requirements(self):

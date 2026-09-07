@@ -541,6 +541,18 @@ a {
 .pulse.stop {
   background: var(--block);
 }
+.pulse.live {
+  animation: pulse-blink 1.2s ease-in-out infinite;
+}
+@keyframes pulse-blink {
+  0%,
+  100% {
+    opacity: 0.25;
+  }
+  50% {
+    opacity: 1;
+  }
+}
 
 /* ---- match report ---- */
 .split {

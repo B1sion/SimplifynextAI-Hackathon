@@ -48,6 +48,9 @@ def parse_job(job: dict[str, Any], agentcore: AgentCoreClient | None = None) -> 
     return JobIR(
         title=job.get("job_title", "Untitled role"),
         company_name=job.get("company_name"),
+        category=job.get("category"),
+        min_years_experience=job.get("min_years_experience"),
+        max_years_experience=job.get("max_years_experience"),
         original_description=description,
         required_skills=required_skills,
         preferred_skills=preferred_skills,
