@@ -32,6 +32,10 @@ yarn-error.log*
 
 # env files (can opt-in for committing if needed)
 .env*
+!.env.example
+.venv
+**/__pycache__/
+*.pyc
 
 # vercel
 .vercel
@@ -39,3 +43,11 @@ yarn-error.log*
 # typescript
 *.tsbuildinfo
 next-env.d.ts
+
+.superpowers/
+.agents/
+.claude/skills/
+skills-lock.json
+
+# generated resume PDFs from local optimize runs (test artifacts)
+backend/storage/generated_resumes/*.pdf

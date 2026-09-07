@@ -147,7 +147,23 @@ export interface SkillGap {
 
 export interface InterviewQuestion {
   question: string;
+  /** Full drafted response the candidate can practice. */
+  answer: string;
   use: string;
+}
+
+export interface BlockedQuestion {
+  question: string;
+  reason: string;
+}
+
+export interface InterviewPrep {
+  jobId: string;
+  jobTitle: string;
+  company: string;
+  category: string;
+  questions: InterviewQuestion[];
+  blocked: BlockedQuestion[];
 }
 
 export interface Recruiter {
@@ -162,7 +178,7 @@ export interface ActionCenter {
   company: string;
   met: number;
   total: number;
-  blocked: BlockedClaim;
+  blocked?: BlockedClaim;
   diffs: ResumeDiff[];
   skills: SkillGap[];
   interview: InterviewQuestion[];
